@@ -1,0 +1,42 @@
+name: AI Error Monitor & Slack Notifier
+
+on:
+  issues:
+    types: [opened]
+  workflow_run:
+    workflows: ["<Your Workflow Name>"] # TODO: 분석 대상이 될 실제 워크플로우 이름으로 변경하세요.
+    types: [completed]
+
+jobs:
+  analyze_and_notify:
+    # 이슈가 오픈되었거나, 모니터링 대상 워크플로우가 실패로 끝났을 때만 실행합니다.
+    if: |
+      github.event_name == 'issues' || 
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install requests openai
+
+      - name: Run AI Error Analysis & Slack Notification
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          AI_BASE_URL: ${{ vars.AI_BASE_URL }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          python .github/scripts/analyze_error.py
