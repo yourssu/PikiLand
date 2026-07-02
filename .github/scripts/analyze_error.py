@@ -4,7 +4,7 @@ import sys
 # Add current scripts directory to Python path to ensure module importing works in GitHub Action environments
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from config import load_dotenv
+from env_config import load_dotenv
 from log_utils import truncate_log_for_ai, download_github_workflow_logs
 from ai_client import analyze_with_ai
 from git_utils import create_auto_patch_pr
