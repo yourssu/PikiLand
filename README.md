@@ -1,6 +1,6 @@
 # 피키랜드 (PikiLand) 🏰
 
-**피키랜드(PikiLand)**는 GitHub Actions 환경에서 발생한 오류나 오픈된 이슈를 자동으로 감지하여, AI(OpenAI 규격 API) 분석을 통해 오류의 핵심 원인과 해결 방안을 도출한 뒤 Slack으로 알림을 전송하는 **AI 기반 에러 모니터링 및 알림 자동화 시스템**입니다.
+**피키랜드(PikiLand)**는 GitHub Actions 환경에서 발생한 빌드 오류나 저장소에 오픈된 이슈를 자동으로 감지하여, AI(OpenAI 규격 API Gateway) 분석을 통해 해결 방안을 도출하고 Slack 알림 및 자동 코드 수정(PR 제출)까지 처리하는 **AI 기반 에러 모니터링 및 자가 치유(Self-Healing) 자동화 시스템**입니다.
 
 ---
 
@@ -10,12 +10,12 @@
    - 빌드/배포 워크플로우가 **실패**하거나 저장소에 **이슈(Issue)**가 생성되면 모니터링 워크플로우가 자동으로 실행됩니다.
 2. **데이터 수집 및 전처리**:
    - 실패한 워크플로우의 실행 ID(`RUN_ID`)를 기반으로 GitHub API에서 에러 로그를 다운로드하여 텍스트를 파싱 및 병합합니다.
-   - AI 컨텍스트 한계를 고려해 로그의 Head와 Tail을 분할 추출하고, 에러 키워드를 정밀 탐색하여 노이즈를 필터링하는 **전처리(Truncate) 작업**을 수행합니다.
-3. **AI 오류 분석**:
-   - 가공된 텍스트를 설정된 API Gateway(예: OpenAI 규격)를 통해 분석 요청합니다.
-   - 시니어 DevOps 엔지니어의 관점에서 **오류 위치**, **발생 원인**, **영향 범위**, **해결 방안**을 요약한 마크다운 피드백을 수신합니다.
+   - AI 컨텍스트 한계를 고려해 로그의 Head와 Tail을 분할 추출하고, 구간 병합(Interval Merge) 알고리즘을 사용해 에러 지점들의 문맥을 손실 없이 추출 및 정제합니다.
+3. **AI 오류 분석 및 자동 패치**:
+   - 가공된 텍스트를 OpenAI 규격 API Gateway(예: `gpt-5.4-mini` 등)로 분석 요청합니다.
+   - AI가 오류 원인을 100% 확신하고 패치 지침을 제공하면, 자동으로 새 브랜치를 생성하여 소스 코드를 교체하고 **자동 Pull Request(PR)**를 발행합니다.
 4. **Slack 알림 발송**:
-   - 원본 에러 로그는 가독성을 위해 **마크다운 접기 문법(`<details>`)**으로 감싸 숨기고, AI 피드백은 **접지 않고 바로 노출**하여 Slack Incoming Webhook을 통해 실시간 전송합니다.
+   - 원본 에러 로그는 가독성을 위해 **마크다운 접기 문법(`<details>`)**으로 감싸 숨기고, AI 분석 피드백은 **접지 않고 바로 노출**하여 Slack Incoming Webhook을 통해 실시간 전송합니다.
 
 ---
 
@@ -23,19 +23,21 @@
 
 ```text
 pikiland/
+├── scripts/                  # 에러 수집, 분석 및 조치 파이썬 모듈 디렉토리
+│   ├── analyze_error.py      # 메인 제어 엔트리포인트 스크립트 (의존성 자가 설치 가드 포함)
+│   ├── env_config.py         # 로컬 .env 및 OS 시스템 환경 변수 매핑 로더
+│   ├── log_utils.py          # 로그 다운로드, ANSI 정제, 구간 병합 전처리 유틸
+│   ├── ai_client.py          # OpenAI 규격 API Gateway 연동 및 마크다운 파서
+│   ├── git_utils.py          # 자동 소스 패치 및 GitHub PR 생성 도구 (DRY_RUN 지원)
+│   └── slack_notifier.py     # Slack 마크다운 템플릿 가공 및 Webhook 발송기
 ├── .github/
-│   ├── workflows/
-│   │   └── ai-error-monitor.yml   # GitHub Actions 트리거 및 실행 단계 정의
-│   └── scripts/
-│       ├── analyze_error.py       # 메인 제어 엔트리포인트 스크립트
-│       ├── config.py              # 로컬 및 시스템 환경 변수 로더
-│       ├── log_utils.py           # 로그 다운로드, ANSI 정제, Truncate 유틸리티
-│       ├── ai_client.py           # OpenAI 규격 API Gateway AI 분석기
-│       ├── git_utils.py           # 로컬 소스 패치 및 GitHub PR 생성 도구
-│       └── slack_notifier.py      # Slack 마크다운 템플릿 빌더 및 알림 전송기
-├── .env.example                   # 로컬 디버깅 및 테스트를 위한 환경 변수 템플릿
-├── .gitignore                     # 로컬 가상 환경 및 비밀 정보 파일(.env) 업로드 방지
-└── README.md                      # 본 설명 문서
+│   └── workflows/
+│       └── ai-error-monitor.yml # 피키랜드 자체 CI 에러 모니터링 워크플로우
+├── action.yml                # 타 저장소에서 uses로 땡겨 쓰기 위한 Custom Action 정의서
+├── requirements.txt          # 개발 환경 의존성 패키지 명세서
+├── .env.example              # 로컬 디버깅 및 테스트를 위한 환경 변수 템플릿
+├── .gitignore                # 가상 환경 및 비밀 정보 파일(.env) 업로드 방지
+└── README.md                 # 본 설명 문서
 ```
 
 ---
@@ -57,6 +59,7 @@ pikiland/
 | `api_key` | `AI_API_KEY` | AI API 사용 인증 키 | (필수 지정 필요) |
 | `slack_webhook_url` | `SLACK_WEBHOOK_URL` | Slack 알림 Incoming Webhook URL | (미지정 시 stdout으로 대체 출력) |
 | `ai_model` | `AI_MODEL` | 분석에 사용할 모델 명칭 | `your-ai-model` |
+| `dry_run` | `DRY_RUN` | 자동 소스 패치 및 Git PR 생성 가상화 여부 | `false` |
 
 ---
 
@@ -78,80 +81,61 @@ python3 -m venv .venv
    ```bash
    cp .env.example .env
    ```
-   
 2. 생성된 `.env` 파일에 각 인증 키 정보 및 대상 게이트웨이 정보를 기입합니다.
 
-### 4.3 로컬 디버그 실행 (Dry-Run)
-로컬에서 스크립트를 수동 구동하여 포맷 및 분석 상태를 시뮬레이션할 수 있습니다. 
-실제 GitHub API 정보가 누락되어 있는 경우 가상의 Gradle 에러 로그를 기반으로 동작하여 Slack 페이로드를 생성합니다.
+### 4.3 로컬 디버그 실행 및 PR 시뮬레이션 (Dry-Run)
+로컬 소스 파일을 변경하거나 Git 히스토리를 오염시키지 않고, 오류 분석 및 PR 생성 전 과정을 테스트하려면 `DRY_RUN=true` 환경 변수를 사용합니다.
 
 ```bash
-.venv/bin/python3 .github/scripts/analyze_error.py
+# 로컬 시뮬레이션 구동 (에러 로그 분석부터 가상 PR 본문 생성까지 전체 프로세스 검증)
+DRY_RUN=true .venv/bin/python3 scripts/analyze_error.py
 ```
 
 ---
 
-## 5. 프로덕션 적용 가이드 (GitHub Actions)
+## 5. 타 저장소 적용 가이드 (GitHub Actions Integration)
 
-저장소(GitHub Repository) 배포 후 아래 설정을 완료해야 프로덕션 환경에서 정상 작동합니다.
+피키랜드는 **Custom GitHub Action**으로 빌드되어 있어, 다른 저장소에서 이 기능을 적용할 때 소스 코드를 복사할 필요 없이 단 한 줄의 `uses:` 구문으로 적용할 수 있습니다.
 
-### 5.1 GitHub Secrets & Variables 설정
-GitHub 저장소의 **Settings** > **Secrets and variables** > **Actions** 메뉴로 이동하여 다음 변수들을 등록합니다:
+### 5.1 타 저장소 Secrets & Variables 설정
+피키랜드를 적용할 대상 저장소의 **Settings** > **Secrets and variables** > **Actions** 메뉴로 이동하여 다음 변수들을 등록합니다:
 
 * **Repository secrets (민감 정보)**:
   - `AI_API_KEY`: AI API 사용을 위한 인증 키
-  - `SLACK_WEBHOOK_URL`: 분석 알림을 발송할 Slack Incoming Webhook URL
+  - `SLACK_WEBHOOK_URL`: 분석 알림을 발송할 Slack Incoming Webhook URL (선택 사항)
 * **Repository variables (일반 환경 설정)**:
-  - `AI_BASE_URL`: OpenAI 호환 API Gateway Base URL (예: `https://api.yourgateway.com/v1`)
+  - `AI_BASE_URL`: OpenAI 호환 API Gateway Base URL (예: `https://factchat-cloud.mindlogic.ai/v1/gateway`)
   - `AI_MODEL`: 분석에 사용할 타겟 AI 모델명 (예: `gpt-5.4-mini`)
 
----
-
-### 5.2 GitHub Actions 워크플로우 설정 (`ai-error-monitor.yml` 예시)
-이벤트(이슈 오픈 또는 모니터링 대상 빌드 실패) 발생 시 작동하는 워크플로우 구성 예시입니다. `.github/workflows/ai-error-monitor.yml` 경로에 작성하여 반영해 주십시오.
+### 5.2 타 저장소 워크플로우 설정 (`.github/workflows/ai-error-monitor.yml`)
+대상 저장소에 아래 워크플로우 파일을 생성하면, 빌드 실패나 이슈 오픈 시 피키랜드가 호출되어 작업을 대신 수행합니다.
 
 ```yaml
-name: AI Error Monitor & Slack Notifier
+name: Run AI Error Monitor
 
 on:
   issues:
     types: [opened]
   workflow_run:
-    workflows: ["Deploy Workflow Name"] # 모니터링 대상이 될 실제 배포 워크플로우 명칭으로 변경
+    workflows: ["Deploy Workflow Name"] # 모니터링 대상이 될 빌드/배포 워크플로우 이름으로 변경
     types: [completed]
 
 jobs:
-  analyze_and_notify:
-    # 이슈가 오픈되었거나, 모니터링 대상 워크플로우가 실패로 끝났을 때만 실행합니다.
-    if: |
-      github.event_name == 'issues' || 
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+  monitor:
+    # 이슈가 오픈되었거나, 모니터링 대상 워크플로우가 실패로 끝났을 때만 실행
+    if: ${{ github.event_name == 'issues' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') }}
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: PikiLand AI Error Monitor
+        uses: yoon/pikiland@main # 피키랜드 액션 호출
         with:
-          python-version: '3.10'
-
-      - name: Install Dependencies
-        run: |
-          pip install requests openai
-
-      - name: Run AI Error Analysis & Slack Notification
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          AI_BASE_URL: ${{ vars.AI_BASE_URL }} # Repository variables에서 로드
-          AI_MODEL: ${{ vars.AI_MODEL }}       # Repository variables에서 로드
-          EVENT_NAME: ${{ github.event_name }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
-        run: |
-          python .github/scripts/analyze_error.py
+          ai_api_key: ${{ secrets.AI_API_KEY }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ai_base_url: ${{ vars.AI_BASE_URL }}
+          ai_model: ${{ vars.AI_MODEL }}
 ```
 
+---
