@@ -9,10 +9,7 @@ on:
 
 jobs:
   analyze_and_notify:
-    # 이슈가 오픈되었거나, 모니터링 대상 워크플로우가 실패로 끝났을 때만 실행합니다.
-    if: |
-      github.event_name == 'issues' || 
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    if: ${{ github.event_name == 'issues' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -38,4 +35,5 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
           python scripts/analyze_error.py

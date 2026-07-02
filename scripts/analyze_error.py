@@ -4,6 +4,31 @@ import sys
 # Add current scripts directory to Python path to ensure module importing works in GitHub Action environments
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# Automatically detect and install missing requirements to run completely unattended
+required_deps = ["requests", "openai"]
+missing_deps = []
+for dep in required_deps:
+    try:
+        __import__(dep)
+    except ImportError:
+        missing_deps.append(dep)
+
+if missing_deps:
+    print(f"Missing required packages: {missing_deps}. Installing automatically...", flush=True)
+    try:
+        cmd = [sys.executable, "-m", "pip", "install"] + missing_deps
+        try:
+            # Try standard install first (works in venv and default environments)
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            # Fallback for externally managed environments (PEP 668)
+            print("Standard install blocked. Retrying with system override flag...", flush=True)
+            subprocess.check_call(cmd + ["--break-system-packages"])
+        print("Required packages installed successfully.", flush=True)
+    except Exception as e:
+        print(f"Fatal Error: Failed to auto-install dependencies: {e}", file=sys.stderr, flush=True)
+        sys.exit(1)
+
 from env_config import load_dotenv
 from log_utils import truncate_log_for_ai, download_github_workflow_logs
 from ai_client import analyze_with_ai

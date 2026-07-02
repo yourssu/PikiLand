@@ -70,7 +70,7 @@ pikiland/
 python3 -m venv .venv
 
 # 2. 필요한 패키지 설치
-.venv/bin/pip install openai requests
+.venv/bin/pip install -r requirements.txt
 ```
 
 ### 4.2 로컬 설정 파일 (.env) 작성
