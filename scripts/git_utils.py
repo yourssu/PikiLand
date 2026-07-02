@@ -6,10 +6,28 @@ def create_auto_patch_pr(patch_instructions: list, pr_title: str, pr_body: str, 
     """
     Applies patch instructions locally, commits the change, pushes to a unique branch,
     and runs GitHub CLI (gh) command to automatically submit a Pull Request.
+    Supports DRY_RUN mode to simulate modifications without touching filesystem or git.
     """
     if not patch_instructions:
         print("No patch instructions provided. Skipping PR.")
         return ""
+
+    # Check for DRY_RUN environment variable
+    dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+    if dry_run:
+        print("[DRY_RUN] Active. Simulating file edits and PR creation...")
+        for patch in patch_instructions:
+            path = patch.get("file_path", "")
+            old_code = patch.get("old_code", "")
+            new_code = patch.get("new_code", "")
+            print(f"[DRY_RUN] File Target: {path}")
+            print(f"[DRY_RUN] Replacing old_code:\n{old_code}\nWith new_code:\n{new_code}")
+        print(f"[DRY_RUN] Simulating Git commit with title: {pr_title}")
+        print(f"[DRY_RUN] Simulating PR creation with body:\n{pr_body}")
+        
+        # Return a simulated mock PR URL
+        mock_pr_url = f"https://github.com/{repo}/pull/mock-auto-patch-123"
+        return mock_pr_url
 
     try:
         # Config git bot identity

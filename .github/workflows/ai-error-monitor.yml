@@ -38,5 +38,4 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           RUN_ID: ${{ github.event.workflow_run.id }}
-        run: |
-          python .github/scripts/analyze_error.py
+          python scripts/analyze_error.py

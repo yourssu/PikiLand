@@ -1,0 +1,51 @@
+name: 'PikiLand AI Error Monitor'
+description: 'AI-powered error diagnostics and automated code patch/PR submission'
+author: 'yoon'
+branding:
+  icon: 'alert-triangle'
+  color: 'red'
+
+inputs:
+  ai_api_key:
+    description: 'OpenAI-compatible AI API Key'
+    required: true
+  slack_webhook_url:
+    description: 'Slack Incoming Webhook URL'
+    required: false
+  ai_base_url:
+    description: 'OpenAI-compatible API Gateway Base URL'
+    required: false
+  ai_model:
+    description: 'Target AI Model Name'
+    required: false
+  github_token:
+    description: 'GitHub Token for log retrieval and PR creation'
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        pip install requests openai
+      shell: bash
+
+    - name: Run AI Diagnostics
+      env:
+        AI_API_KEY: ${{ inputs.ai_api_key }}
+        SLACK_WEBHOOK_URL: ${{ inputs.slack_webhook_url }}
+        AI_BASE_URL: ${{ inputs.ai_base_url }}
+        AI_MODEL: ${{ inputs.ai_model }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        EVENT_NAME: ${{ github.event_name }}
+        ISSUE_BODY: ${{ github.event.issue.body }}
+        RUN_ID: ${{ github.event.workflow_run.id }}
+      run: |
+        python ${{ github.action_path }}/scripts/analyze_error.py
+      shell: bash

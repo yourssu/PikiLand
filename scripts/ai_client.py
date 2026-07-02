@@ -8,8 +8,9 @@ def analyze_with_ai(content_to_analyze: str, event_type: str, api_key: str) -> d
     Connects to the specified OpenAI-compatible gateway and queries the model
     to perform error diagnostics, returning structured JSON response.
     """
-    base_url = os.environ.get("AI_BASE_URL")
-    model_name = os.environ.get("AI_MODEL")
+    base_url = os.environ.get("AI_BASE_URL", "").strip()
+    model_name = os.environ.get("AI_MODEL", "").strip()
+    api_key = api_key.strip() if api_key else ""
     
     if not api_key:
         print("Warning: AI_API_KEY is not set. Skipping AI analysis.")
