@@ -27,7 +27,12 @@ pikiland/
 │   ├── workflows/
 │   │   └── ai-error-monitor.yml   # GitHub Actions 트리거 및 실행 단계 정의
 │   └── scripts/
-│       └── analyze_error.py       # 로그 다운로드, 전처리, AI 분석 및 Slack 전송 핵심 파이썬 스크립트
+│       ├── analyze_error.py       # 메인 제어 엔트리포인트 스크립트
+│       ├── config.py              # 로컬 및 시스템 환경 변수 로더
+│       ├── log_utils.py           # 로그 다운로드, ANSI 정제, Truncate 유틸리티
+│       ├── ai_client.py           # OpenAI 규격 API Gateway AI 분석기
+│       ├── git_utils.py           # 로컬 소스 패치 및 GitHub PR 생성 도구
+│       └── slack_notifier.py      # Slack 마크다운 템플릿 빌더 및 알림 전송기
 ├── .env.example                   # 로컬 디버깅 및 테스트를 위한 환경 변수 템플릿
 ├── .gitignore                     # 로컬 가상 환경 및 비밀 정보 파일(.env) 업로드 방지
 └── README.md                      # 본 설명 문서
@@ -73,13 +78,8 @@ python3 -m venv .venv
    ```bash
    cp .env.example .env
    ```
+   
 2. 생성된 `.env` 파일에 각 인증 키 정보 및 대상 게이트웨이 정보를 기입합니다.
-   ```env
-   BASE_URL="https://factchat-cloud.mindlogic.ai/v1/gateway"
-   API_KEY="your-api-key-here"
-   SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-   AI_MODEL="gpt-5.4-mini"
-   ```
 
 ### 4.3 로컬 디버그 실행 (Dry-Run)
 로컬에서 스크립트를 수동 구동하여 포맷 및 분석 상태를 시뮬레이션할 수 있습니다. 
@@ -102,7 +102,7 @@ GitHub 저장소의 **Settings** > **Secrets and variables** > **Actions** 메�
   - `AI_API_KEY`: AI API 사용을 위한 인증 키
   - `SLACK_WEBHOOK_URL`: 분석 알림을 발송할 Slack Incoming Webhook URL
 * **Repository variables (일반 환경 설정)**:
-  - `AI_BASE_URL`: OpenAI 호환 API Gateway Base URL (예: `https://factchat-cloud.mindlogic.ai/v1/gateway`)
+  - `AI_BASE_URL`: OpenAI 호환 API Gateway Base URL (예: `https://api.yourgateway.com/v1`)
   - `AI_MODEL`: 분석에 사용할 타겟 AI 모델명 (예: `gpt-5.4-mini`)
 
 ---
