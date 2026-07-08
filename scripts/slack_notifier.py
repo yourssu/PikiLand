@@ -2,8 +2,14 @@ import requests
 
 def send_slack_notification(webhook_url: str, raw_log: str, ai_result: dict, event_type: str, repo: str, run_id: str = None, pr_url: str = None):
     """Sends the formatted diagnostic message payload to Slack via Incoming Webhook."""
-    if not webhook_url:
-        print("Warning: SLACK_WEBHOOK_URL is not set. Printing payload to stdout.")
+    # Treat empty, dummy placeholders, or invalid URLs as not set
+    is_invalid_webhook = (
+        not webhook_url or 
+        "your/webhook/url" in webhook_url or 
+        not webhook_url.startswith("https://")
+    )
+    if is_invalid_webhook:
+        print("Warning: SLACK_WEBHOOK_URL is not set or is a placeholder. Printing payload to stdout.")
         test_payload = build_slack_message(raw_log, ai_result, event_type, repo, run_id, pr_url)
         print(test_payload)
         return
@@ -40,7 +46,7 @@ def build_slack_message(raw_log: str, ai_result: dict, event_type: str, repo: st
         patch_summary = ai_result.get("patch_summary", "코드 수정을 완료했습니다.")
         pr_status = (
             f"🤖 *[AI Auto-Patch]* 원인을 감지하여 자동으로 코드를 수정하고 PR을 생성했습니다!\n"
-            f"*🛠️ 패치 내용 (비개발자용 설명)*: {patch_summary}\n"
+            f"🛠️ *패치 내용*: {patch_summary}\n"
             f"👉 *PR Link*: <{pr_url}|{pr_url}>"
         )
     else:

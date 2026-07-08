@@ -51,30 +51,25 @@ def main():
     content_to_analyze = ""
     
     # 2. Extract and sanitize raw logs/issues text
-    if event_name == "issues":
+    mock_log = os.environ.get("MOCK_ERROR_LOG", "")
+    if mock_log: # for Dry-run
+        print("Using mock error log provided via environment variable.")
+        content_to_analyze = truncate_log_for_ai(mock_log)
+    elif event_name == "issues":
         print("Processing Issue Event...")
         content_to_analyze = issue_body if issue_body else "No issue body content provided."
     elif event_name == "workflow_run":
         print(f"Processing Workflow Run Event for Run ID: {run_id}...")
         if not run_id or not token:
-            print("Warning: RUN_ID or GITHUB_TOKEN is missing. Using dummy Gradle error logs for local test.")
-            dummy_gradle_log = (
-                "[:compileJava] Compiling 15 source files...\n"
-                "/Users/yoon/pikiland/src/test/java/com/example/demo/DemoApplicationTests.java:12: error: cannot find symbol\n"
-                "        User user = new User(\"test\", \"test@example.com\");\n"
-                "        ^\n"
-                "  symbol:   class User\n"
-                "  location: class DemoApplicationTests\n"
-                "BUILD FAILED in 2s\n"
-            )
-            content_to_analyze = truncate_log_for_ai(dummy_gradle_log)
-        else:
-            try:
-                raw_logs = download_github_workflow_logs(repo, run_id, token)
-                content_to_analyze = truncate_log_for_ai(raw_logs)
-            except Exception as e:
-                content_to_analyze = f"Failed to download/parse workflow logs: {str(e)}"
-                print(content_to_analyze)
+            print("Error: RUN_ID or GITHUB_TOKEN is missing. Workflow logging requires valid credentials.")
+            sys.exit(1)
+        try:
+            raw_logs = download_github_workflow_logs(repo, run_id, token)
+            content_to_analyze = truncate_log_for_ai(raw_logs)
+        except Exception as e:
+            content_to_analyze = f"Failed to download/parse workflow logs: {str(e)}"
+            print(content_to_analyze)
+            sys.exit(1)
     else:
         print(f"Unsupported event: {event_name}")
         sys.exit(0)
