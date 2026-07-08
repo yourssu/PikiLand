@@ -11,6 +11,10 @@ jobs:
   analyze_and_notify:
     if: ${{ github.event_name == 'issues' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
 
     steps:
       - name: Checkout Repository

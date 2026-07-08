@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 
 # Add current scripts directory to Python path to ensure module importing works in GitHub Action environments
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
