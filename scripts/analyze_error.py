@@ -83,7 +83,6 @@ def main():
     ai_result = analyze_with_ai(content_to_analyze, event_name, ai_api_key)
     
     is_confident = ai_result.get("is_confident", False)
-    explanation = ai_result.get("explanation", "No explanation provided.")
     pr_needed = ai_result.get("pr_needed", False)
     patch_instructions = ai_result.get("patch_instructions", [])
     pr_title = ai_result.get("pr_title", "")
@@ -108,7 +107,7 @@ def main():
     send_slack_notification(
         webhook_url=slack_webhook_url,
         raw_log=content_to_analyze,
-        ai_feedback=explanation,
+        ai_result=ai_result,
         event_type=event_name,
         repo=repo,
         run_id=run_id,
