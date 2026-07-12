@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Dashboard 🏰 PikiLand</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="container">
+        <header class="glass-header">
+            <div class="logo">🏰 PikiLand</div>
+            <div class="user-control">
+                <span class="username" th:text="${username}">username</span>
+                <a href="/logout" class="btn btn-secondary btn-logout">Logout</a>
+            </div>
+        </header>
+
+        <main class="dashboard-main">
+            <div class="main-header">
+                <h1>Active Repositories</h1>
+                <p>Configure self-healing AI and Slack webhook endpoints per repository.</p>
+            </div>
+
+            <div class="repo-grid">
+                <!-- If no repos -->
+                <div th:if="${#lists.isEmpty(repos)}" class="glass-card empty-card">
+                    <p>No repositories found. Ensure your GitHub account has authorized access.</p>
+                </div>
+
+                <!-- Repository cards -->
+                <div th:each="repo : ${repos}" class="glass-card repo-card">
+                    <div class="repo-meta">
+                        <h3 class="repo-title" th:text="${repo.fullName}">owner/repo</h3>
+                        <label class="switch">
+                            <input type="checkbox" th:id="'toggle-' + ${repo.fullName}" th:checked="${repo.active}">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="repo-details">
+                        <div class="form-group">
+                            <label>Slack Webhook URL</label>
+                            <input type="text" th:id="'slack-' + ${repo.fullName}" th:value="${repo.slackWebhookUrl}" placeholder="https://hooks.slack.com/services/...">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Custom AI Model (Optional)</label>
+                            <input type="text" th:id="'model-' + ${repo.fullName}" th:value="${repo.customModel}" placeholder="gpt-4o">
+                        </div>
+
+                        <button class="btn btn-primary btn-save" th:onclick="saveSettings([[${repo.fullName}]])">
+                            Save Configuration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast">Settings updated successfully!</div>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

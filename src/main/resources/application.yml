@@ -1,0 +1,20 @@
+spring:
+  profiles:
+    active: local
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
+
+app:
+  ai:
+    base-url: ${AI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:gpt-4o}
+    dry-run: ${DRY_RUN:false}
+  github:
+    app-id: ${GITHUB_APP_ID:}
+    private-key-path: ${GITHUB_PRIVATE_KEY_PATH:github-app-private-key.pem}
+    webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
