@@ -14,8 +14,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.nio.file.Path;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Component
 public class OpenAiAdapter implements AiAgentPort {
