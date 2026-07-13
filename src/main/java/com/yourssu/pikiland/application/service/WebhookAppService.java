@@ -1,22 +1,82 @@
 package com.yourssu.pikiland.application.service;
 
-import com.yourssu.pikiland.domain.port.GithubAuthPort;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 
 @Service
 public class WebhookAppService {
 
     private final SelfHealingAppService selfHealingAppService;
-    private final GithubAuthPort githubAuthPort;
 
-    public WebhookAppService(SelfHealingAppService selfHealingAppService, GithubAuthPort githubAuthPort) {
+    @Value("${app.github.webhook-secret:}")
+    private String webhookSecret;
+
+    @Value("${app.ai.dry-run:false}")
+    private boolean dryRun;
+
+    public WebhookAppService(SelfHealingAppService selfHealingAppService) {
         this.selfHealingAppService = selfHealingAppService;
-        this.githubAuthPort = githubAuthPort;
+    }
+
+    /**
+     * Verifies the GitHub webhook HMAC-SHA256 signature.
+     * Verification is skipped when:
+     * - {@code app.github.webhook-secret} is blank (not configured — safe for local/debug)
+     * - {@code app.ai.dry-run} is true (dry-run / integration-test mode)
+     *
+     * @return true if the request is trusted, false if signature mismatch
+     */
+    private boolean isTrustedRequest(String payload, String signature) {
+        // Dry-run/debug is the ONLY sanctioned bypass. A non-dry-run (production) deployment
+        // MUST have a webhook secret configured; a blank secret there is a misconfiguration,
+        // so we fail closed rather than trust unsigned requests.
+        if (dryRun) {
+            System.out.println("[Webhook] Signature verification SKIPPED (dry-run mode)");
+            return true;
+        }
+        if (webhookSecret == null || webhookSecret.isBlank()) {
+            System.err.println("[Webhook] REJECTED — GITHUB_WEBHOOK_SECRET is not configured in a " +
+                    "non-dry-run environment. Refusing to trust unsigned requests.");
+            return false;
+        }
+
+        if (signature == null || !signature.startsWith("sha256=")) {
+            System.err.println("[Webhook] Missing or malformed X-Hub-Signature-256 header.");
+            return false;
+        }
+
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] hash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            String expected = "sha256=" + HexFormat.of().formatHex(hash);
+
+            // Constant-time comparison to prevent timing-attack side-channels
+            return MessageDigest.isEqual(
+                    expected.getBytes(StandardCharsets.UTF_8),
+                    signature.getBytes(StandardCharsets.UTF_8)
+            );
+        } catch (Exception e) {
+            System.err.println("[Webhook] Signature computation error: " + e.getMessage());
+            return false;
+        }
     }
 
     public void handleEvent(String event, String payload, String signature) {
+        // --- Security Gate: reject requests that fail signature verification ---
+        if (!isTrustedRequest(payload, signature)) {
+            System.err.println("[Webhook] REJECTED — signature verification failed. Possible spoofed request.");
+            return;
+        }
+
         try {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode rootNode = mapper.readTree(payload);

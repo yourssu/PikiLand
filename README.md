@@ -10,11 +10,11 @@
     - 이스케이프 코드 제거
     - 로딩 바 등 TUI 제거
     - 긴 로그는 error, failed 등 키워드 감지해서 필터링
-- AI에게 로그랑 같이 줄 프롬프트 (개선 필요)
+- AI에게 로그랑 같이 줄 프롬프트
 - AI가 스스로 코드베이스 탐색
 - AI의 응답 포맷 JSON으로 강제
-- AI가 판단하여 가능할 시 자동 PR 생성 (생성 조건 개선 필요)
-- AI의 판단을 비개발자가 이해하기 쉽게 설명하여 Slack에 제시 (프롬프트 개선 필요)
+- AI가 스스로 버그픽스 PR 최대 3개 생성, PR 설명은 개발자용으로 생성
+- AI의 판단을 비개발자가 이해하기 쉽게 설명하여 Slack에 제시
 
 ### 구현해야 할 것
 - AI 학습 기능 (메모리)
@@ -24,25 +24,26 @@
 - **AI가 올린 PR을 E2E 검증 루프로 확인하기**
     - AI가 여러 PR 후보를 생성하도록 수정
     - E2E 검증 루프 만들기
+- **전체적인 AI 프롬프트 개선 필요**
 
 ---
 
 ## 1. 아키텍처 및 작동 흐름 (Workflow)
 
 1. **이벤트 감지 및 비동기 스케줄링**:
-   - 리포지토리에서 빌드 실패(`workflow_run.completed` - conclusion: failure) 또는 이슈 오픈(`issues.opened`) 웹훅 이벤트가 발생하면 Spring Boot WebhookController가 즉시 수신합니다.
-   - 웹 서버의 응답 지연을 방지하기 위해, 웹훅 서명 검증이 통과하면 즉시 200 OK를 반환하고, 실제 AI 분석 비즈니스 로직은 **Java 21 Virtual Threads** 기반으로 백그라운드 스레드에서 완전히 비동기 실행됩니다.
-2. **인프라 계층을 통한 데이터 수집 및 정제**:
-   - `LogTruncator` 도메인 서비스를 활용해 로그 파일의 Head와 Tail을 분할 추출하고, 키워드 매칭 구간 병합(Interval Merge) 알고리즘을 사용해 에러 지점들의 문맥을 정제합니다.
-3. **AI 오류 분석 및 자율 탐색 (Ports & Adapters 루프)**:
+   - 저장소의 빌드 실패 또는 이슈 오픈 이벤트를 Spring Boot WebhookController가 수신하면 서명을 검증한 후 즉시 200 OK를 반환합니다.
+   - 실제 자가 치유(Self-Healing) 메커니즘은 **Java 21 Virtual Threads**를 이용해 백그라운드 스레드에서 완전히 비동기 실행됩니다.
+2. **에러 컨텍스트 수집 및 정제**:
+   - `LogTruncator` 도메인 서비스가 로그를 정제하여 불필요한 노이즈를 쳐내고, 핵심 에러 로그만을 남겨 AI 프롬프트에 제공합니다.
+3. **AI 오류 분석 및 자율 탐색 (Ports & Adapters)**:
    - `OpenAiAdapter`가 AI Gateway에 분석을 요청합니다.
-   - AI가 오류의 맥락을 정확히 짚기 위해 제공된 도구(`list_directory`, `read_file_content`, `grep_in_file`)를 호출하면, Application Layer의 포트를 거쳐 `LocalWorkspaceAdapter`가 임시 작업 폴더(`tempfile`)에서 Git 소스 코드를 자율 탐색하여 정보를 반환합니다.
-   - 루프 Stuck 방지(동일 도구 5회 이상 호출 시 에러 가드) 및 3회 이중 회복 탄력 루프가 동작합니다.
-4. **자동 코드 패치 및 PR 생성**:
-   - AI가 오류 수정법을 확신하고 패치 지침을 제공하면, `LocalWorkspaceAdapter`가 소스 코드를 바꾸어 임시 브랜치를 만들고 push합니다.
-   - `GithubAppAuthenticator`를 통해 획득한 임시 GitHub Installation Access Token을 사용해 REST API로 자동으로 Pull Request(PR)를 발행합니다.
-5. **Slack 알림**:
-   - 마크다운 접기 문법(`<details>`)으로 에러 로그를 숨기고 비개발자용 핵심 피드백 요약 및 위험도를 Slack Webhook으로 발송합니다.
+   - AI가 오류의 맥락을 파악하고자 도구(`list_directory`, `read_file_content`, `grep_in_file`)를 사용하면, Application Layer의 포트를 통해 `LocalWorkspaceAdapter`가 임시 작업 폴더에서 소스 코드를 자율 탐색하여 반환합니다.
+4. **다중 브랜치 생성 및 자동 코드 패치**:
+   - 제안된 각 PR 후보(최대 3개)에 대해 독립적인 임시 브랜치를 만들고 push합니다.
+   - 브랜치 생성 전후로 임시 워크스페이스를 깨끗하게 리셋(`resetToCleanState`)하여 각 PR이 독립적인 수정사항을 가질 수 있도록 보장합니다.
+5. **PR 생성 및 Slack 맞춤형 알림**:
+   - GitHub App Installation Access Token을 이용해 각 후보 브랜치마다 개별 PR을 발행하며, 설명 하단에 접이식 에러 로그를 삽입합니다.
+   - 최종적으로 생성된 PR 주소 리스트를 담아, 비개발자용 한국어 Slack 알림 템플릿으로 요약본을 전송합니다.
 
 ---
 
@@ -68,20 +69,22 @@ pikiland/
 │   │   │   │   └── dto/             # RepoSettingsDto (레이어 간 데이터 교환 모델)
 │   │   │   │
 │   │   │   ├── domain/              # Layer 3: 도메인 계층 (순수 핵심 코어)
-│   │   │   │   ├── model/           # RepoSettings, PatchInstruction, AiAnalysisResult (JPA-free)
-│   │   │   │   ├── port/            # RepoSettingsRepository, WorkspacePort, AiAgentPort, NotifierPort (DIP)
+│   │   │   │   ├── model/           # RepoSettings, PatchInstruction, AiAnalysisResult, PrCandidate (JPA-free)
+│   │   │   │   ├── port/            # RepoSettingsRepository, WorkspacePort, AiAgentPort, NotifierPort, GithubAuthPort (DIP)
 │   │   │   │   └── service/         # LogTruncator (구간 병합 에러로그 정제)
 │   │   │   │
 │   │   │   └── infrastructure/      # Layer 4: 데이터 액세스 & 인프라 계층
 │   │   │       ├── persistence/     # JPA Entity, JpaRepository, RepoSettingsRepositoryImpl (DIP 구현)
 │   │   │       ├── workspace/       # LocalWorkspaceAdapter (ProcessBuilder Git 제어)
-│   │   │       ├── ai/              # OpenAiAdapter (자율 에이전트 루프 구현)
+│   │   │       ├── ai/              # OpenAiAdapter (자율 에이전트 루프 및 다중 PR 추출)
 │   │   │       ├── github/          # GithubAppAuthenticator (JWT 및 GitHub API 연동)
-│   │   │       └── slack/           # SlackNotifierAdapter (Webhook 알림 발송)
+│   │   │       └── slack/           # SlackNotifierAdapter (Webhook 맞춤형 알림 발송)
 │   │   │
 │   │   └── resources/
 │   │       ├── templates/           # Thymeleaf HTML 템플릿 (index.html, dashboard.html)
-│   │       ├── static/              # CSS & JS 리소스 (main.css, dashboard.js)
+│   │       ├── static/              # CSS & JS 리소스
+│   │       │   ├── css/main.css
+│   │       │   └── js/dashboard.js
 │   │       ├── application.yml      # 공통 및 가상 스레드 설정
 │   │       ├── application-local.yml# 개발용 로컬 설정 (H2 DB)
 │   │       └── application-prod.yml # 프로덕션 설정 (PostgreSQL DB)
@@ -89,7 +92,8 @@ pikiland/
 │   └── test/
 │       └── java/com/yourssu/pikiland/
 │           ├── ArchitectureTest.java# ArchUnit 기반 4계층 아키텍처 규칙 자동 검증 테스트
-│           └── LogTruncatorTest.java# LogTruncator 비즈니스 로직 단위 테스트
+│           ├── LogTruncatorTest.java# LogTruncator 비즈니스 로직 단위 테스트
+│           └── DryRunTest.java      # .env 로드를 통한 실전형 AI 자가 치유 시뮬레이션 통합 테스트
 ```
 
 ---
@@ -98,39 +102,46 @@ pikiland/
 
 데이터베이스 및 GitHub 연동 설정은 개발(local)과 배포(prod) 프로필로 분리되어 있습니다.
 
-### 필수 환경 변수
-서버 구동 시 다음 환경 변수가 주입되어야 합니다:
+### 환경 변수 (`.env`)
+로컬 서버 구동 시 또는 Dry-Run 테스트 실행 시 다음 환경 변수가 필요합니다:
 - `AI_API_KEY`: API Gateway 사용을 위한 인증 키
 - `AI_BASE_URL`: OpenAI 호환 API Gateway Base URL
+- `AI_MODEL`: 분석에 사용할 기본 AI 모델명 (예: `gpt-4o`, `gpt-5.4-mini` 등)
+- `DRY_RUN`: AI 드라이런(dry-run) 바이패스 활성화 여부 (로컬 테스트 시 서명/소유권 검증 생략)
 - `GITHUB_APP_ID`: GitHub App ID
 - `GITHUB_PRIVATE_KEY_PATH`: GitHub App Private Key (.pem) 파일 경로
 - `GITHUB_CLIENT_ID`: GitHub OAuth Client ID
 - `GITHUB_CLIENT_SECRET`: GitHub OAuth Client Secret
 - `GITHUB_WEBHOOK_SECRET`: GitHub Webhook Signature 검증 비밀 키
 
+Production 시 다음 환경 변수가 추가로 필요합니다:
+- `DATABASE_URL`: 프로덕션 데이터베이스 접속 URL (예: `jdbc:postgresql://localhost:5432/pikilanddb`)
+- `DATABASE_USER`: 프로덕션 데이터베이스 사용자명
+- `DATABASE_PASSWORD`: 프로덕션 데이터베이스 비밀번호
+
 ---
 
 ## 4. 로컬 테스트 및 개발 가이드
 
-### 4.1 빌드 및 테스트 실행
-자체 구현된 ArchUnit 계층 구조 검사 및 비즈니스 로직 테스트를 수행합니다.
+### 4.1 빌드 및 전체 테스트 실행
+계층 구조 검사, 단위 테스트 및 통합 테스트를 수행합니다.
 ```bash
-./gradlew clean test
+./gradlew clean test -i
 ```
 
 ### 4.2 로컬 애플리케이션 실행
 로컬 H2 데이터베이스(file-persisted)를 사용하여 서버를 구동합니다.
 ```bash
-./gradlew bootRun --args='--spring.profiles.active=local'
+# .env 환경 변수를 로드한 상태로 구동 (Zsh / Bash)
+set -a && source .env && set +a && ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 구동 완료 후 브라우저에서 `http://localhost:8080`에 접속하여 GitHub OAuth 로그인을 테스트할 수 있습니다.
 
-### 4.3 자가 치유 시뮬레이션 Dry-Run 테스트
-실제 외부 API 인증키나 GitHub/Slack 외부 연동 망 없이도, 전체 자가 치유 워크플로우(로그 정제, AI 다단계 자율 코드 탐색, 소스 패치 적용, 가상 PR/알림 연동)가 정상 구동되는지 격리 검증하는 Dry-Run 테스트를 제공합니다.
+### 4.3 자가 치유 시뮬레이션 Dry-Run 테스트 (실시간 AI 검증)
+실제 외부 GitHub/Slack 망에 이벤트를 전송하지 않되, 로컬 `.env`에 명시된 실제 AI 게이트웨이 및 모델을 호출해 소스 코드의 분석, 수정, 다중 PR 생성 분기 흐름을 검증합니다.
 ```bash
-./gradlew test --tests "*DryRunTest*"
+./gradlew cleanTest test --tests "*DryRunTest*" -i
 ```
-
 
 ---
 
@@ -149,4 +160,4 @@ pikiland/
    - `Workflow run` (완료 시점의 빌드 실패 감지)
    - `Issues` (이슈 오픈 감지)
 4. **App 설치**:
-   - 생성한 GitHub App을 타겟 조직(Organization) 또는 저장소에 설치합니다.
+   - 생성한 GitHub App을 타겟 저장소에 설치합니다.

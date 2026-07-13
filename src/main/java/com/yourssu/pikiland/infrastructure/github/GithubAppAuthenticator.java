@@ -4,6 +4,7 @@ import com.yourssu.pikiland.domain.port.GithubAuthPort;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -28,14 +29,40 @@ public class GithubAppAuthenticator implements GithubAuthPort {
 
     private final String appId;
     private final String privateKeyPath;
+
+    /** Default RestTemplate: follows redirects (used for most API calls). */
     private final RestTemplate restTemplate;
+
+    /**
+     * No-redirect RestTemplate used exclusively for the workflow-log download.
+     * GitHub's /logs endpoint returns 302 → AWS S3 presigned URL.
+     * S3 presigned URLs embed their own auth in query params; forwarding the
+     * GitHub Authorization header to S3 causes an AWS SignatureDoesNotMatch error.
+     * By disabling auto-follow we can strip the header before fetching from S3.
+     */
+    private final RestTemplate noRedirectRestTemplate;
 
     public GithubAppAuthenticator(
             @Value("${app.github.app-id:}") String appId,
             @Value("${app.github.private-key-path:github-app-private-key.pem}") String privateKeyPath) {
         this.appId = appId;
         this.privateKeyPath = privateKeyPath;
-        this.restTemplate = new RestTemplate();
+        
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10000);
+        factory.setReadTimeout(60000);
+        this.restTemplate = new RestTemplate(factory);
+
+        SimpleClientHttpRequestFactory noRedirectFactory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(java.net.HttpURLConnection connection, String httpMethod) throws java.io.IOException {
+                super.prepareConnection(connection, httpMethod);
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
+        noRedirectFactory.setConnectTimeout(10000);
+        noRedirectFactory.setReadTimeout(60000);
+        this.noRedirectRestTemplate = new RestTemplate(noRedirectFactory);
     }
 
     private PrivateKey getPrivateKey() throws Exception {
@@ -117,34 +144,65 @@ public class GithubAppAuthenticator implements GithubAuthPort {
     public String downloadWorkflowLogs(String repo, String runId, String token) {
         String url = "https://api.github.com/repos/" + repo + "/actions/runs/" + runId + "/logs";
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + token);
-            headers.set("Accept", "application/vnd.github+json");
-            
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<byte[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, byte[].class);
+            HttpHeaders githubHeaders = new HttpHeaders();
+            githubHeaders.set("Authorization", "Bearer " + token);
+            githubHeaders.set("Accept", "application/vnd.github+json");
+            HttpEntity<Void> githubEntity = new HttpEntity<>(githubHeaders);
 
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                StringBuilder logBuilder = new StringBuilder();
-                try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(response.getBody()))) {
-                    ZipEntry entry;
-                    while ((entry = zis.getNextEntry()) != null) {
-                        if (entry.getName().endsWith(".txt") || !entry.getName().contains("/")) {
-                            BufferedReader br = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));
-                            String line;
-                            logBuilder.append("=== File: ").append(entry.getName()).append(" ===\n");
-                            while ((line = br.readLine()) != null) {
-                                logBuilder.append(line).append("\n");
-                            }
-                            logBuilder.append("\n");
+            // Step 1: call GitHub API — expect 302 redirect to an S3 presigned URL.
+            // We use noRedirectRestTemplate so Spring doesn't auto-follow the redirect
+            // and accidentally forward the Authorization header to S3 (causing SignatureDoesNotMatch).
+            ResponseEntity<byte[]> initialResponse;
+            try {
+                initialResponse = noRedirectRestTemplate.exchange(url, HttpMethod.GET, githubEntity, byte[].class);
+            } catch (Exception ex) {
+                // Some RestTemplate builds throw on non-2xx; try to extract Location from exception or re-throw
+                throw new RuntimeException("Initial GitHub logs request failed", ex);
+            }
+
+            byte[] zipBytes = null;
+
+            if (initialResponse.getStatusCode() == HttpStatus.OK && initialResponse.getBody() != null) {
+                // Rare: API returned the ZIP directly (e.g. test doubles or future API change)
+                zipBytes = initialResponse.getBody();
+            } else if (initialResponse.getStatusCode().is3xxRedirection()) {
+                // Step 2: follow the redirect to S3 — WITHOUT the Authorization header
+                String s3Url = initialResponse.getHeaders().getFirst(HttpHeaders.LOCATION);
+                if (s3Url == null || s3Url.isBlank()) {
+                    throw new RuntimeException("GitHub returned 302 but no Location header for run " + runId);
+                }
+                System.out.println("[GitHub] Following log redirect to S3 (auth header stripped): " + s3Url.substring(0, Math.min(80, s3Url.length())) + "...");
+                ResponseEntity<byte[]> s3Response = restTemplate.exchange(
+                        s3Url, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), byte[].class);
+                if (s3Response.getStatusCode() == HttpStatus.OK && s3Response.getBody() != null) {
+                    zipBytes = s3Response.getBody();
+                } else {
+                    throw new RuntimeException("S3 log download failed: " + s3Response.getStatusCode());
+                }
+            } else {
+                throw new RuntimeException("Unexpected response from GitHub logs endpoint: " + initialResponse.getStatusCode());
+            }
+
+            // Step 3: unzip and concatenate all .txt log files
+            StringBuilder logBuilder = new StringBuilder();
+            try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
+                ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    if (entry.getName().endsWith(".txt") || !entry.getName().contains("/")) {
+                        BufferedReader br = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));
+                        String line;
+                        logBuilder.append("=== File: ").append(entry.getName()).append(" ===\n");
+                        while ((line = br.readLine()) != null) {
+                            logBuilder.append(line).append("\n");
                         }
+                        logBuilder.append("\n");
                     }
                 }
-                return logBuilder.toString();
             }
+            return logBuilder.toString();
+
         } catch (Exception e) {
             throw new RuntimeException("Failed to download workflow logs for run " + runId, e);
         }
-        return "No logs downloaded.";
     }
 }

@@ -8,23 +8,16 @@ public class AiAnalysisResult {
     private final String impact;
     private final String causeDescription;
     private final boolean prNeeded;
-    private final String patchSummary;
-    private final List<PatchInstruction> patchInstructions;
-    private final String prTitle;
-    private final String prBody;
+    private final List<PrCandidate> prCandidates;
 
     public AiAnalysisResult(boolean confident, String summary, String impact, String causeDescription,
-                            boolean prNeeded, String patchSummary, List<PatchInstruction> patchInstructions,
-                            String prTitle, String prBody) {
+                            boolean prNeeded, List<PrCandidate> prCandidates) {
         this.confident = confident;
         this.summary = summary;
         this.impact = impact;
         this.causeDescription = causeDescription;
         this.prNeeded = prNeeded;
-        this.patchSummary = patchSummary;
-        this.patchInstructions = patchInstructions;
-        this.prTitle = prTitle;
-        this.prBody = prBody;
+        this.prCandidates = prCandidates;
     }
 
     public boolean isConfident() {
@@ -47,19 +40,7 @@ public class AiAnalysisResult {
         return prNeeded;
     }
 
-    public String getPatchSummary() {
-        return patchSummary;
-    }
-
-    public List<PatchInstruction> getPatchInstructions() {
-        return patchInstructions;
-    }
-
-    public String getPrTitle() {
-        return prTitle;
-    }
-
-    public String getPrBody() {
-        return prBody;
+    public List<PrCandidate> getPrCandidates() {
+        return prCandidates;
     }
 }

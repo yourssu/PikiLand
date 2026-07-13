@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 
 @Component
 public class LogTruncator {
-    private static final Pattern ANSI_ESCAPE = Pattern.compile("\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])");
+    private static final Pattern ANSI_ESCAPE = Pattern.compile("\\u001B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])");
     private static final Pattern PROGRESS_BAR = Pattern.compile("\\[[=#>-]+\\s*\\]\\s*\\d+[%/]");
     
     private static final List<String> ERROR_KEYWORDS = Arrays.asList(

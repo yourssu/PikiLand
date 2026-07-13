@@ -14,10 +14,11 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.client.RestTemplate;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -27,6 +28,33 @@ import static org.mockito.Mockito.*;
 @ActiveProfiles("local")
 public class DryRunTest {
 
+    static {
+        try {
+            Path envPath = Paths.get(".env");
+            if (Files.exists(envPath)) {
+                List<String> lines = Files.readAllLines(envPath);
+                for (String line : lines) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("#")) continue;
+                    int eqIdx = line.indexOf('=');
+                    if (eqIdx != -1) {
+                        String key = line.substring(0, eqIdx).trim();
+                        String val = line.substring(eqIdx + 1).trim();
+                        if (val.startsWith("\"") && val.endsWith("\"")) {
+                            val = val.substring(1, val.length() - 1);
+                        } else if (val.startsWith("'") && val.endsWith("'")) {
+                            val = val.substring(1, val.length() - 1);
+                        }
+                        System.setProperty(key, val);
+                        System.out.println("[DryRunTest Env] Loaded: " + key + " = " + val);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to load .env file in DryRunTest static block: " + e.getMessage());
+        }
+    }
+
     @Autowired
     private SelfHealingAppService selfHealingAppService;
 
@@ -35,9 +63,6 @@ public class DryRunTest {
 
     @SpyBean
     private WorkspacePort workspacePort;
-
-    @MockBean
-    private RestTemplate restTemplate;
 
     @MockBean
     private GithubAuthPort githubAuthPort;
@@ -60,72 +85,29 @@ public class DryRunTest {
                 "}";
         Files.writeString(badFile, badCode);
 
-        // 2. Persist mock settings in database
+        // 2. Persist mock settings in database using real model name from .env
+        String modelName = System.getProperty("AI_MODEL", "gpt-4o");
+        System.out.println("[DryRunTest] Using AI Model: " + modelName);
         settingsRepository.save(new RepoSettings(
                 "test-owner/test-repo",
                 true,
                 "https://hooks.slack.com/services/mock-webhook-url",
-                "gpt-4o"
+                modelName
         ));
 
-        // 3. Setup Mocks and Spy
+        // 3. Setup Mocks and Spy (We DO NOT mock RestTemplate so the real OpenAI HTTP calls go through)
         doReturn(mockWorkspace).when(workspacePort).cloneRepository(anyString(), anyString());
         doNothing().when(workspacePort).commitAndPush(any(Path.class), anyString(), anyString(), anyString(), anyString());
+        doAnswer(invocation -> {
+            Files.writeString(badFile, badCode);
+            return null;
+        }).when(workspacePort).resetToCleanState(any(Path.class), anyString());
+        doReturn("main").when(workspacePort).getCurrentBranch(any(Path.class));
+        // Prevent the finally-block cleanup from deleting mockWorkspace before assertions read the patched file
+        doNothing().when(workspacePort).deleteWorkspace(any(Path.class));
         
         when(githubAuthPort.getInstallationAccessToken(anyLong())).thenReturn("mock-token");
         when(githubAuthPort.downloadWorkflowLogs(anyString(), anyString(), anyString())).thenReturn("Build Failed. Symbol undeclaredVar not found.");
-
-        // AI loop mock steps:
-        // Step 1: Request list directory in src/main/java
-        String resStep1 = "{\n" +
-                "  \"choices\": [{\n" +
-                "    \"message\": {\n" +
-                "      \"role\": \"assistant\",\n" +
-                "      \"content\": \"I will list the directory to find files.\",\n" +
-                "      \"tool_calls\": [{\n" +
-                "        \"id\": \"call_1\",\n" +
-                "        \"type\": \"function\",\n" +
-                "        \"function\": {\n" +
-                "          \"name\": \"list_directory\",\n" +
-                "          \"arguments\": \"{\\\"directory_path\\\": \\\"src/main/java\\\"}\"\n" +
-                "        }\n" +
-                "      }]\n" +
-                "    }\n" +
-                "  }]\n" +
-                "}";
-
-        // Step 2: Request read App.java
-        String resStep2 = "{\n" +
-                "  \"choices\": [{\n" +
-                "    \"message\": {\n" +
-                "      \"role\": \"assistant\",\n" +
-                "      \"content\": \"I will read the contents of App.java.\",\n" +
-                "      \"tool_calls\": [{\n" +
-                "        \"id\": \"call_2\",\n" +
-                "        \"type\": \"function\",\n" +
-                "        \"function\": {\n" +
-                "          \"name\": \"read_file_content\",\n" +
-                "          \"arguments\": \"{\\\"file_path\\\": \\\"src/main/java/App.java\\\"}\"\n" +
-                "        }\n" +
-                "      }]\n" +
-                "    }\n" +
-                "  }]\n" +
-                "}";
-
-        // Step 3: Returns structural analysis and patch details
-        String resStep3 = "{\n" +
-                "  \"choices\": [{\n" +
-                "    \"message\": {\n" +
-                "      \"role\": \"assistant\",\n" +
-                "      \"content\": \"{\\\"is_confident\\\": true, \\\"summary\\\": \\\"미정의 변수 에러 해결\\\", \\\"impact\\\": \\\"컴파일 에러가 발생하여 빌드가 실패함\\\", \\\"cause_description\\\": \\\"undeclaredVar 변수가 선언되지 않아 컴파일 에러가 발생했습니다.\\\", \\\"pr_needed\\\": true, \\\"patch_summary\\\": \\\"미정의 변수를 문자열 리터럴로 치환했습니다.\\\", \\\"pr_title\\\": \\\"fix: declare undeclared variable in App.java\\\", \\\"pr_body\\\": \\\"This PR fixes compilation errors.\\\", \\\"patch_instructions\\\": [{\\\"file_path\\\": \\\"src/main/java/App.java\\\", \\\"old_code\\\": \\\"System.out.println(undeclaredVar);\\\", \\\"new_code\\\": \\\"System.out.println(\\\\\\\"Hello PikiLand\\\\\\\");\\\"}]}\"\n" +
-                "    }\n" +
-                "  }]\n" +
-                "}";
-
-        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
-                .thenReturn(new ResponseEntity<>(resStep1, HttpStatus.OK))
-                .thenReturn(new ResponseEntity<>(resStep2, HttpStatus.OK))
-                .thenReturn(new ResponseEntity<>(resStep3, HttpStatus.OK));
 
         when(githubAuthPort.createPullRequest(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn("https://github.com/test-owner/test-repo/pull/1");
@@ -141,10 +123,10 @@ public class DryRunTest {
 
         // 5. Wait for the Virtual Thread async task to complete
         boolean patched = false;
-        for (int i = 0; i < 20; i++) {
-            Thread.sleep(200);
+        for (int i = 0; i < 180; i++) { // Increase wait steps for real AI gateway response latency
+            Thread.sleep(500);
             String content = Files.readString(badFile);
-            if (content.contains("Hello PikiLand")) {
+            if (!content.equals(badCode)) {
                 patched = true;
                 break;
             }
@@ -157,13 +139,13 @@ public class DryRunTest {
         System.out.println("--------------------------------------");
 
         assertTrue(patched, "Code must be patched successfully within timeout.");
-        assertFalse(updatedCode.contains("undeclaredVar"), "Deprecated variable must be removed.");
+        assertNotEquals(badCode, updatedCode, "Code must be modified from original buggy code.");
 
         // 7. Verify Mock expectations
-        verify(githubAuthPort, times(1)).createPullRequest(
+        verify(githubAuthPort, atLeastOnce()).createPullRequest(
                 eq("test-owner/test-repo"),
-                eq("fix: declare undeclared variable in App.java"),
-                eq("This PR fixes compilation errors."),
+                anyString(), // Real AI might generate different PR title
+                anyString(), // Real AI might generate different PR body
                 anyString(), // unique branch
                 eq("main"),
                 eq("mock-token")
@@ -176,7 +158,7 @@ public class DryRunTest {
                 eq("workflow_run"),
                 eq("test-owner/test-repo"),
                 eq("9999"),
-                eq("https://github.com/test-owner/test-repo/pull/1")
+                anyList()
         );
 
         System.out.println("Dry-run validation PASSED completely!");
