@@ -1,163 +1,96 @@
-# 피키랜드 (PikiLand) 🏰
+# PikiLand
 
-**피키랜드(PikiLand)**는 **Java 21 & Spring Boot 3.x** 기반의 독립된 **GitHub App** 서비스 서버로 동작하며, GitHub Actions 환경에서 발생한 빌드 오류나 저장소에 오픈된 이슈를 자동으로 감지하여, AI(OpenAI 규격 API Gateway) 분석을 통해 해결 방안을 도출하고 Slack 알림 및 자동 코드 수정(PR 제출)까지 처리하는 **AI 기반 에러 모니터링 및 자가 치유(Self-Healing) 자동화 시스템**입니다.
+PikiLand는 GitHub에서 발생한 오류를 분석하고 패치 PR과 Slack 알림을 만드는 GitHub App입니다.
 
-### 구현된 것
-- 워크플로우 실패 감지
-- 이슈 열림 감지
-- 에러 로그 또는 이슈 내용 불러오기
-- 불러온 내용 AI한테 먹이기 쉽게 전처리 (추가 개선 필요)
-    - 이스케이프 코드 제거
-    - 로딩 바 등 TUI 제거
-    - 긴 로그는 error, failed 등 키워드 감지해서 필터링
-- AI에게 로그랑 같이 줄 프롬프트
-- AI가 스스로 코드베이스 탐색
-- AI의 응답 포맷 JSON으로 강제
-- AI가 스스로 버그픽스 PR 최대 3개 생성, PR 설명은 개발자용으로 생성
-- AI의 판단을 비개발자가 이해하기 쉽게 설명하여 Slack에 제시
+현재 저장소는 **Java 21·Spring Boot 기반 프로토타입**입니다. GitHub Actions 실패와 새 Issue를 감지하고 OpenAI 호환 API로 분석해 최대 3개의 PR을 생성합니다. 목표 제품은 여기서 더 나아가 런타임·사용자 행동 오류까지 수집하고, 실제 재현과 회귀 검증을 통과한 최선의 패치 하나만 공개합니다.
 
-### 구현해야 할 것
-- AI 학습 기능 (메모리)
-- AI가 아직 자체 테스트 없이 PR을 올리게 되어 있음
-- 슬랙에서 PR 승인 기능 (현재는 깃헙에서 승인 필요)
-- Sentry, PostHog 연동해서 런타임 에러 받아오기
-- **AI가 올린 PR을 E2E 검증 루프로 확인하기**
-    - AI가 여러 PR 후보를 생성하도록 수정
-    - E2E 검증 루프 만들기
-- **전체적인 AI 프롬프트 개선 필요**
+제품 결정은 [Product Design](docs/DESIGN.md), 목표 구조는 [Architecture & Data Pipeline](docs/ARCHITECTURE_AND_DATA_PIPELINE.md)을 기준으로 합니다.
 
----
+## 현재 구현
 
-## 1. 아키텍처 및 작동 흐름 (Workflow)
+- `workflow_run` 실패 및 새 Issue 웹훅 수신
+- GitHub 웹훅 서명 검증과 Installation Access Token 발급
+- GitHub OAuth 로그인 및 저장소 설정 대시보드
+- 로그 정제와 임시 워크스페이스 코드 탐색
+- OpenAI 호환 API를 이용한 원인·패치 분석
+- 최대 3개의 후보 브랜치와 PR 생성
+- 개발자용 PR 설명과 비개발자용 Slack 요약
+- H2 로컬 DB와 PostgreSQL 운영 프로필
+- ArchUnit 계층 검사와 로그 단위 테스트
 
-1. **이벤트 감지 및 비동기 스케줄링**:
-   - 저장소의 빌드 실패 또는 이슈 오픈 이벤트를 Spring Boot WebhookController가 수신하면 서명을 검증한 후 즉시 200 OK를 반환합니다.
-   - 실제 자가 치유(Self-Healing) 메커니즘은 **Java 21 Virtual Threads**를 이용해 백그라운드 스레드에서 완전히 비동기 실행됩니다.
-2. **에러 컨텍스트 수집 및 정제**:
-   - `LogTruncator` 도메인 서비스가 로그를 정제하여 불필요한 노이즈를 쳐내고, 핵심 에러 로그만을 남겨 AI 프롬프트에 제공합니다.
-3. **AI 오류 분석 및 자율 탐색 (Ports & Adapters)**:
-   - `OpenAiAdapter`가 AI Gateway에 분석을 요청합니다.
-   - AI가 오류의 맥락을 파악하고자 도구(`list_directory`, `read_file_content`, `grep_in_file`)를 사용하면, Application Layer의 포트를 통해 `LocalWorkspaceAdapter`가 임시 작업 폴더에서 소스 코드를 자율 탐색하여 반환합니다.
-4. **다중 브랜치 생성 및 자동 코드 패치**:
-   - 제안된 각 PR 후보(최대 3개)에 대해 독립적인 임시 브랜치를 만들고 push합니다.
-   - 브랜치 생성 전후로 임시 워크스페이스를 깨끗하게 리셋(`resetToCleanState`)하여 각 PR이 독립적인 수정사항을 가질 수 있도록 보장합니다.
-5. **PR 생성 및 Slack 맞춤형 알림**:
-   - GitHub App Installation Access Token을 이용해 각 후보 브랜치마다 개별 PR을 발행하며, 설명 하단에 접이식 에러 로그를 삽입합니다.
-   - 최종적으로 생성된 PR 주소 리스트를 담아, 비개발자용 한국어 Slack 알림 템플릿으로 요약본을 전송합니다.
+## 현재와 목표의 차이
 
----
+| 항목 | 현재 프로토타입 | M3 목표 |
+| --- | --- | --- |
+| 입력 | CI 실패, Issue | CI, 런타임 오류, 행동 규칙 위반 |
+| AI 실행 | OpenAI 호환 API 키 | 사용자가 선택한 Claude 또는 Codex Provider |
+| 후보 처리 | 최대 3개를 검증 없이 각각 PR로 공개 | 내부 검증 후 최선의 하나만 공개 |
+| 검증 | 패치 적용 여부 | Harness 기반 Red → Green·회귀 검증 |
+| 장시간 작업 | Spring 비동기 실행 | 재시도·복구 가능한 Queue와 Worker |
 
-## 2. 파일 구조 (Project Structure)
-
-Strict 4-Layered Architecture (Presentation -> Application -> Domain <- Infrastructure)를 완벽하게 준수하며, 테스트 빌드 시 ArchUnit으로 계층 침범 및 역참조를 강제 검증합니다.
+## 목표 흐름
 
 ```text
-pikiland/
-├── build.gradle.kts                # Gradle 빌드 및 의존성 명세
-├── settings.gradle.kts             # Gradle 프로젝트 설정
-├── src/
-│   ├── main/
-│   │   ├── java/com/yourssu/pikiland/
-│   │   │   ├── PikilandApplication.java # Spring Boot 메인 클래스
-│   │   │   │
-│   │   │   ├── presentation/        # Layer 1: 표현 계층 (UI, REST, Controller)
-│   │   │   │   ├── controller/      # WebhookController, DashboardController, SecurityConfig
-│   │   │   │   └── dto/             # Response DTO
-│   │   │   │
-│   │   │   ├── application/         # Layer 2: 애플리케이션 계층 (Usecase)
-│   │   │   │   ├── service/         # WebhookAppService, SelfHealingAppService
-│   │   │   │   └── dto/             # RepoSettingsDto (레이어 간 데이터 교환 모델)
-│   │   │   │
-│   │   │   ├── domain/              # Layer 3: 도메인 계층 (순수 핵심 코어)
-│   │   │   │   ├── model/           # RepoSettings, PatchInstruction, AiAnalysisResult, PrCandidate (JPA-free)
-│   │   │   │   ├── port/            # RepoSettingsRepository, WorkspacePort, AiAgentPort, NotifierPort, GithubAuthPort (DIP)
-│   │   │   │   └── service/         # LogTruncator (구간 병합 에러로그 정제)
-│   │   │   │
-│   │   │   └── infrastructure/      # Layer 4: 데이터 액세스 & 인프라 계층
-│   │   │       ├── persistence/     # JPA Entity, JpaRepository, RepoSettingsRepositoryImpl (DIP 구현)
-│   │   │       ├── workspace/       # LocalWorkspaceAdapter (ProcessBuilder Git 제어)
-│   │   │       ├── ai/              # OpenAiAdapter (자율 에이전트 루프 및 다중 PR 추출)
-│   │   │       ├── github/          # GithubAppAuthenticator (JWT 및 GitHub API 연동)
-│   │   │       └── slack/           # SlackNotifierAdapter (Webhook 맞춤형 알림 발송)
-│   │   │
-│   │   └── resources/
-│   │       ├── templates/           # Thymeleaf HTML 템플릿 (index.html, dashboard.html)
-│   │       ├── static/              # CSS & JS 리소스
-│   │       │   ├── css/main.css
-│   │       │   └── js/dashboard.js
-│   │       ├── application.yml      # 공통 및 가상 스레드 설정
-│   │       ├── application-local.yml# 개발용 로컬 설정 (H2 DB)
-│   │       └── application-prod.yml # 프로덕션 설정 (PostgreSQL DB)
-│   │
-│   └── test/
-│       └── java/com/yourssu/pikiland/
-│           ├── ArchitectureTest.java# ArchUnit 기반 4계층 아키텍처 규칙 자동 검증 테스트
-│           ├── LogTruncatorTest.java# LogTruncator 비즈니스 로직 단위 테스트
-│           └── DryRunTest.java      # .env 로드를 통한 실전형 AI 자가 치유 시뮬레이션 통합 테스트
+오류 감지
+  → 코드·로그·행동·릴리스 연결
+  → 원인과 패치 후보 생성
+  → 후보별 재현·수정·회귀 검증
+  → 실패 후보 폐기
+  → 최선의 패치 하나만 PR로 공개
+  → Slack 요약
+  → 사람이 최종 머지
 ```
 
----
+MVP는 신뢰할 수 있는 Harness와 Ralph Loop가 이미 준비된 저장소를 대상으로 합니다. 패치 전 오류를 재현하지 못하거나 검증을 통과한 후보가 없으면 PR을 만들지 않습니다.
 
-## 3. 환경 설정 및 프로필 (Configuration Profiles)
+## 로컬 실행
 
-데이터베이스 및 GitHub 연동 설정은 개발(local)과 배포(prod) 프로필로 분리되어 있습니다.
+Java 21이 필요합니다.
 
-### 환경 변수 (`.env`)
-로컬 서버 구동 시 또는 Dry-Run 테스트 실행 시 다음 환경 변수가 필요합니다:
-- `AI_API_KEY`: API Gateway 사용을 위한 인증 키
-- `AI_BASE_URL`: OpenAI 호환 API Gateway Base URL
-- `AI_MODEL`: 분석에 사용할 기본 AI 모델명 (예: `gpt-4o`, `gpt-5.4-mini` 등)
-- `DRY_RUN`: AI 드라이런(dry-run) 바이패스 활성화 여부 (로컬 테스트 시 서명/소유권 검증 생략)
-- `GITHUB_APP_ID`: GitHub App ID
-- `GITHUB_PRIVATE_KEY_PATH`: GitHub App Private Key (.pem) 파일 경로
-- `GITHUB_CLIENT_ID`: GitHub OAuth Client ID
-- `GITHUB_CLIENT_SECRET`: GitHub OAuth Client Secret
-- `GITHUB_WEBHOOK_SECRET`: GitHub Webhook Signature 검증 비밀 키
-
-Production 시 다음 환경 변수가 추가로 필요합니다:
-- `DATABASE_URL`: 프로덕션 데이터베이스 접속 URL (예: `jdbc:postgresql://localhost:5432/pikilanddb`)
-- `DATABASE_USER`: 프로덕션 데이터베이스 사용자명
-- `DATABASE_PASSWORD`: 프로덕션 데이터베이스 비밀번호
-
----
-
-## 4. 로컬 테스트 및 개발 가이드
-
-### 4.1 빌드 및 전체 테스트 실행
-계층 구조 검사, 단위 테스트 및 통합 테스트를 수행합니다.
 ```bash
-./gradlew clean test -i
+cp .env.example .env
+set -a
+source .env
+set +a
+./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-### 4.2 로컬 애플리케이션 실행
-로컬 H2 데이터베이스(file-persisted)를 사용하여 서버를 구동합니다.
+실행 후 `http://localhost:8080`에서 GitHub OAuth 로그인과 저장소 설정 화면을 확인할 수 있습니다.
+
+주요 환경 변수:
+
+| 변수 | 용도 |
+| --- | --- |
+| `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` | 현재 OpenAI 호환 AI Gateway |
+| `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH` | GitHub App 인증 |
+| `GITHUB_WEBHOOK_SECRET` | 웹훅 서명 검증 |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | 대시보드 GitHub OAuth |
+| `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | 운영 PostgreSQL |
+| `DRY_RUN` | 로컬 테스트 우회 설정. 운영에서는 반드시 `false` |
+
+`.env`와 GitHub App private key는 커밋하지 마세요.
+
+## 검증
+
+일반 테스트:
+
 ```bash
-# .env 환경 변수를 로드한 상태로 구동 (Zsh / Bash)
-set -a && source .env && set +a && ./gradlew bootRun --args='--spring.profiles.active=local'
+./gradlew test --tests '*ArchitectureTest' --tests '*LogTruncatorTest'
 ```
-구동 완료 후 브라우저에서 `http://localhost:8080`에 접속하여 GitHub OAuth 로그인을 테스트할 수 있습니다.
 
-### 4.3 자가 치유 시뮬레이션 Dry-Run 테스트 (실시간 AI 검증)
-실제 외부 GitHub/Slack 망에 이벤트를 전송하지 않되, 로컬 `.env`에 명시된 실제 AI 게이트웨이 및 모델을 호출해 소스 코드의 분석, 수정, 다중 PR 생성 분기 흐름을 검증합니다.
+실제 AI Gateway API를 호출하는 Dry Run:
+
 ```bash
-./gradlew cleanTest test --tests "*DryRunTest*" -i
+./gradlew cleanTest test --tests '*DryRunTest*' -i
 ```
 
----
+Dry Run은 `AI_BASE_URL`과 `AI_API_KEY`를 이용해 실제 OpenAI 호환 HTTP API를 호출합니다. Claude Code 또는 ChatGPT 구독을 사용하는 흐름이 아닙니다.
 
-## 5. 서비스 등록 및 GitHub App 설정 가이드
+## 문서
 
-피키랜드를 실제 저장소에 도입하기 위해서는 GitHub App 등록이 필요합니다:
-1. **GitHub App 등록**:
-   - GitHub Developer settings에서 New GitHub App을 생성합니다.
-   - **Homepage URL** 및 **Callback URL**(`http://<your-domain>/login/oauth2/code/github`)을 입력합니다.
-   - **Webhook URL**에 `http://<your-domain>/webhook`을 입력하고 Webhook Secret을 설정합니다.
-2. **권한(Permissions) 설정**:
-   - `Repository permissions` -> `Contents: Read & Write` (자동 코드 패치 push용)
-   - `Repository permissions` -> `Pull Requests: Read & Write` (자동 PR 발행용)
-   - `Repository permissions` -> `Actions: Read` (빌드 로그 다운로드용)
-3. **이벤트(Events) 구독**:
-   - `Workflow run` (완료 시점의 빌드 실패 감지)
-   - `Issues` (이슈 오픈 감지)
-4. **App 설치**:
-   - 생성한 GitHub App을 타겟 저장소에 설치합니다.
+| 문서 | 답하는 질문 |
+| --- | --- |
+| [Product Design](docs/DESIGN.md) | 왜 만들고 무엇을 우선하는가? |
+| [Architecture & Data Pipeline](docs/ARCHITECTURE_AND_DATA_PIPELINE.md) | 어떤 구조와 검증으로 목표를 달성하는가? |
+| [Competitive Research](docs/COMPETITORS.md) | 기존 제품과 무엇이 다른가? |
+| [Future Ideas](docs/FUTURE_IDEAS.md) | MVP 이후 무엇을 다시 검토할 것인가? |
