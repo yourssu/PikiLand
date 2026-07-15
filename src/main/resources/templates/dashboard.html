@@ -51,10 +51,16 @@
                             <input type="text" th:id="'model-' + ${repo.fullName}" th:value="${repo.customModel}" placeholder="gpt-4o">
                         </div>
 
+                        <div class="form-group">
+                            <label>Harness Verification Command (Optional)</label>
+                            <input type="text" th:id="'harness-' + ${repo.fullName}" th:value="${repo.harnessCmd}" placeholder="./gradlew test">
+                        </div>
+
                         <button class="btn btn-primary btn-save" th:onclick="saveSettings([[${repo.fullName}]])">
                             Save Configuration
                         </button>
                     </div>
+
                 </div>
             </div>
         </main>

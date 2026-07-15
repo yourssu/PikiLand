@@ -13,14 +13,16 @@ public class RepoSettingsJpaEntity {
     private boolean active;
     private String slackWebhookUrl;
     private String customModel;
+    private String harnessCmd;
 
     public RepoSettingsJpaEntity() {}
 
-    public RepoSettingsJpaEntity(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel) {
+    public RepoSettingsJpaEntity(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel, String harnessCmd) {
         this.repositoryFullName = repositoryFullName;
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
         this.customModel = customModel;
+        this.harnessCmd = harnessCmd;
     }
 
     public String getRepositoryFullName() {
@@ -54,4 +56,13 @@ public class RepoSettingsJpaEntity {
     public void setCustomModel(String customModel) {
         this.customModel = customModel;
     }
+
+    public String getHarnessCmd() {
+        return harnessCmd;
+    }
+
+    public void setHarnessCmd(String harnessCmd) {
+        this.harnessCmd = harnessCmd;
+    }
 }
+

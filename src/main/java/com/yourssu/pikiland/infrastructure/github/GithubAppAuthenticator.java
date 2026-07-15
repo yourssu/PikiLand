@@ -205,4 +205,124 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             throw new RuntimeException("Failed to download workflow logs for run " + runId, e);
         }
     }
+
+    @Override
+    public void triggerWorkflowDispatch(String repo, String workflowId, String ref, Map<String, Object> inputs, String token) {
+        String url = "https://api.github.com/repos/" + repo + "/actions/workflows/" + workflowId + "/dispatches";
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
+            headers.set("Accept", "application/vnd.github+json");
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("ref", ref);
+            payload.put("inputs", inputs);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            restTemplate.postForEntity(url, entity, Void.class);
+            System.out.println("Successfully triggered workflow dispatch '" + workflowId + "' on ref " + ref + " for repo " + repo);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo, e);
+        }
+    }
+
+    @Override
+    public void installWorkflowIfMissing(String repo, String token, String defaultBranch) {
+        String path = ".github/workflows/pikiland.yml";
+        String checkUrl = "https://api.github.com/repos/" + repo + "/contents/" + path + "?ref=" + defaultBranch;
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
+            headers.set("Accept", "application/vnd.github+json");
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            try {
+                ResponseEntity<Map> response = restTemplate.exchange(checkUrl, HttpMethod.GET, entity, Map.class);
+                if (response.getStatusCode() == HttpStatus.OK) {
+                    System.out.println("[GitHub] pikiland.yml already exists in " + repo);
+                    return;
+                }
+            } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+                // File missing, install it
+                System.out.println("[GitHub] pikiland.yml not found in " + repo + ". Installing...");
+                String installUrl = "https://api.github.com/repos/" + repo + "/contents/" + path;
+
+                String yaml = "name: PikiLand Self-Healing\n" +
+                        "\n" +
+                        "on:\n" +
+                        "  workflow_dispatch:\n" +
+                        "    inputs:\n" +
+                        "      event_type:\n" +
+                        "        description: 'Original event type'\n" +
+                        "        required: true\n" +
+                        "      log_content:\n" +
+                        "        description: 'Truncated error log or issue body'\n" +
+                        "        required: true\n" +
+                        "      run_id:\n" +
+                        "        description: 'Original run ID or issue number'\n" +
+                        "        required: true\n" +
+                        "      target_branch:\n" +
+                        "        description: 'Branch to checkout and patch'\n" +
+                        "        required: true\n" +
+                        "      slack_webhook_url:\n" +
+                        "        description: 'Slack Webhook URL'\n" +
+                        "        required: false\n" +
+                        "      ai_model:\n" +
+                        "        description: 'AI model name'\n" +
+                        "        required: false\n" +
+                        "      harness_cmd:\n" +
+                        "        description: 'Command to run harness verification (e.g. ./gradlew test)'\n" +
+                        "        required: false\n" +
+                        "\n" +
+                        "jobs:\n" +
+                        "  pikiland-patch:\n" +
+                        "    runs-on: ubuntu-latest\n" +
+                        "    steps:\n" +
+                        "      - name: Checkout Code\n" +
+                        "        uses: actions/checkout@v4\n" +
+                        "        with:\n" +
+                        "          ref: ${{ github.event.inputs.target_branch }}\n" +
+                        "          fetch-depth: 0\n" +
+                        "\n" +
+                        "      - name: Run PikiLand CLI\n" +
+                        "        run: |\n" +
+                        "          docker run --rm \\\n" +
+                        "            -v ${{ github.workspace }}:/workspace \\\n" +
+                        "            -e PIKILAND_CLI=true \\\n" +
+                        "            -e PIKILAND_EVENT_TYPE=\"${{ github.event.inputs.event_type }}\" \\\n" +
+                        "            -e PIKILAND_LOG_CONTENT=\"${{ github.event.inputs.log_content }}\" \\\n" +
+                        "            -e PIKILAND_RUN_ID=\"${{ github.event.inputs.run_id }}\" \\\n" +
+                        "            -e PIKILAND_TARGET_BRANCH=\"${{ github.event.inputs.target_branch }}\" \\\n" +
+                        "            -e PIKILAND_WORKSPACE_PATH=\"/workspace\" \\\n" +
+                        "            -e PIKILAND_HARNESS_CMD=\"${{ github.event.inputs.harness_cmd }}\" \\\n" +
+                        "            -e GITHUB_TOKEN=\"${{ secrets.GITHUB_TOKEN }}\" \\\n" +
+                        "            -e GITHUB_REPOSITORY=\"${{ github.repository }}\" \\\n" +
+                        "            -e SLACK_WEBHOOK_URL=\"${{ github.event.inputs.slack_webhook_url }}\" \\\n" +
+                        "            -e AI_MODEL=\"${{ github.event.inputs.ai_model }}\" \\\n" +
+                        "            -e OPENAI_API_KEY=\"${{ secrets.OPENAI_API_KEY }}\" \\\n" +
+                        "            -e ANTHROPIC_API_KEY=\"${{ secrets.ANTHROPIC_API_KEY }}\" \\\n" +
+                        "            ghcr.io/yourssu/pikiland:latest\n";
+
+                String base64Content = Base64.getEncoder().encodeToString(yaml.getBytes(StandardCharsets.UTF_8));
+
+                Map<String, Object> body = new HashMap<>();
+                body.put("message", "ci: install PikiLand self-healing workflow");
+                body.put("content", base64Content);
+                body.put("branch", defaultBranch);
+
+                HttpHeaders putHeaders = new HttpHeaders();
+                putHeaders.set("Authorization", "Bearer " + token);
+                putHeaders.set("Accept", "application/vnd.github+json");
+                putHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+                HttpEntity<Map<String, Object>> putEntity = new HttpEntity<>(body, putHeaders);
+                restTemplate.exchange(installUrl, HttpMethod.PUT, putEntity, Map.class);
+                System.out.println("[GitHub] Successfully installed pikiland.yml in " + repo + " on branch " + defaultBranch);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to check/install workflow file in " + repo, e);
+        }
+    }
 }

@@ -10,10 +10,14 @@ server:
 
 app:
   ai:
-    base-url: ${AI_BASE_URL:https://api.openai.com/v1}
-    api-key: ${AI_API_KEY:}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_API_KEY:}
     model: ${AI_MODEL:gpt-4o}
     dry-run: ${DRY_RUN:false}
+  anthropic:
+    base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com/v1}
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20240620}
   github:
     app-id: ${GITHUB_APP_ID:}
     private-key-path: ${GITHUB_PRIVATE_KEY_PATH:github-app-private-key.pem}

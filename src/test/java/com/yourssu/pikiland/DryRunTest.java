@@ -1,7 +1,8 @@
 package com.yourssu.pikiland;
 
-import com.yourssu.pikiland.application.service.SelfHealingAppService;
+import com.yourssu.pikiland.application.service.SelfHealingCliService;
 import com.yourssu.pikiland.domain.model.AiAnalysisResult;
+import com.yourssu.pikiland.domain.model.HarnessResult;
 import com.yourssu.pikiland.domain.model.RepoSettings;
 import com.yourssu.pikiland.domain.port.GithubAuthPort;
 import com.yourssu.pikiland.domain.port.NotifierPort;
@@ -55,7 +56,7 @@ public class DryRunTest {
     }
 
     @Autowired
-    private SelfHealingAppService selfHealingAppService;
+    private SelfHealingCliService selfHealingCliService;
 
     @Autowired
     private RepoSettingsRepository settingsRepository;
@@ -84,6 +85,9 @@ public class DryRunTest {
                 "}";
         Files.writeString(badFile, badCode);
 
+        // Write safety file AGENTS.md
+        Files.writeString(mockWorkspace.resolve("AGENTS.md"), "Allowed.");
+
         // 2. Persist mock settings in database using real model name from .env
         String modelName = System.getProperty("AI_MODEL", "gpt-4o");
         System.out.println("[DryRunTest] Using AI Model: " + modelName);
@@ -91,7 +95,8 @@ public class DryRunTest {
                 "test-owner/test-repo",
                 true,
                 "https://hooks.slack.com/services/mock-webhook-url",
-                modelName
+                modelName,
+                "./mock-harness.sh"
         ));
 
         // 3. Setup Mocks and Spy (We DO NOT mock RestTemplate so the real OpenAI HTTP calls go through)
@@ -104,6 +109,11 @@ public class DryRunTest {
         doReturn("main").when(workspacePort).getCurrentBranch(any(Path.class));
         // Prevent the finally-block cleanup from deleting mockWorkspace before assertions read the patched file
         doNothing().when(workspacePort).deleteWorkspace(any(Path.class));
+
+        // Mock harness: first call (buggy repo check) fails, subsequent calls (patch check) succeed
+        doReturn(new HarnessResult(false, "Tests failed: undeclaredVar not found"))
+                .doReturn(new HarnessResult(true, "Build success!"))
+                .when(workspacePort).runHarness(any(Path.class), anyString());
         
         when(githubAuthPort.getInstallationAccessToken(anyLong())).thenReturn("mock-token");
         when(githubAuthPort.downloadWorkflowLogs(anyString(), anyString(), anyString())).thenReturn("Build Failed. Symbol undeclaredVar not found.");
@@ -111,33 +121,53 @@ public class DryRunTest {
         when(githubAuthPort.createPullRequest(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn("https://github.com/test-owner/test-repo/pull/1");
 
-        // 4. Run Self Healing process (Normally async, so we wait afterwards)
-        selfHealingAppService.runSelfHealing(
-                "test-owner/test-repo",
-                "Build Failed. Symbol undeclaredVar not found.",
-                "workflow_run",
-                "9999",
-                12345L
-        );
+        // 4. Run Self Healing process in CLI mode
+        System.setProperty("PIKILAND_EVENT_TYPE", "workflow_run");
+        System.setProperty("PIKILAND_LOG_CONTENT", "Build Failed. Symbol undeclaredVar not found.");
+        System.setProperty("GITHUB_TOKEN", "mock-token");
+        System.setProperty("GITHUB_REPOSITORY", "test-owner/test-repo");
+        System.setProperty("PIKILAND_WORKSPACE_PATH", mockWorkspace.toAbsolutePath().toString());
+        System.setProperty("PIKILAND_RUN_ID", "9999");
+        System.setProperty("SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/mock-webhook-url");
+        System.setProperty("PIKILAND_HARNESS_CMD", "./mock-harness.sh");
+        String apiKey = System.getProperty("OPENAI_API_KEY");
+        if (apiKey == null || apiKey.isBlank()) {
+            apiKey = System.getenv("OPENAI_API_KEY");
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            apiKey = System.getProperty("AI_API_KEY");
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            apiKey = System.getenv("AI_API_KEY");
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            apiKey = "mock-openai-key";
+        }
+        System.setProperty("OPENAI_API_KEY", apiKey);
 
-        // 5. Wait for the Virtual Thread async task to complete
-        boolean patched = false;
-        for (int i = 0; i < 180; i++) { // Increase wait steps for real AI gateway response latency
-            Thread.sleep(500);
-            String content = Files.readString(badFile);
-            if (!content.equals(badCode)) {
-                patched = true;
-                break;
-            }
+        String baseUrl = System.getProperty("OPENAI_BASE_URL");
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = System.getenv("OPENAI_BASE_URL");
+        }
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = System.getProperty("AI_BASE_URL");
+        }
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = System.getenv("AI_BASE_URL");
+        }
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            System.setProperty("OPENAI_BASE_URL", baseUrl);
         }
 
-        // 6. Verify local workspace changes
+
+        selfHealingCliService.run();
+
+        // 5. Verify local workspace changes (runs synchronously in test)
         String updatedCode = Files.readString(badFile);
         System.out.println("--- Updated Code inside Workspace ---");
         System.out.println(updatedCode);
         System.out.println("--------------------------------------");
 
-        assertTrue(patched, "Code must be patched successfully within timeout.");
         assertNotEquals(badCode, updatedCode, "Code must be modified from original buggy code.");
 
         // 7. Verify Mock expectations

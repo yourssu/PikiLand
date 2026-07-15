@@ -1,5 +1,6 @@
 package com.yourssu.pikiland.domain.port;
 
+import com.yourssu.pikiland.domain.model.HarnessResult;
 import com.yourssu.pikiland.domain.model.PatchInstruction;
 import java.nio.file.Path;
 import java.util.List;
@@ -28,4 +29,13 @@ public interface WorkspacePort {
      * @return number of source files, or a safe conservative default on error
      */
     int countSourceFiles(Path workspace);
+
+    /**
+     * Executes the harness verification command in the workspace directory.
+     *
+     * @param workspace the workspace path
+     * @param command the harness command string to execute
+     * @return the harness execution success status and captured output logs
+     */
+    HarnessResult runHarness(Path workspace, String command);
 }

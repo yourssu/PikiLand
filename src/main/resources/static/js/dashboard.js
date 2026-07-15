@@ -2,13 +2,16 @@ function saveSettings(repoFullName) {
     const active = document.getElementById('toggle-' + repoFullName).checked;
     const slackUrl = document.getElementById('slack-' + repoFullName).value;
     const customModel = document.getElementById('model-' + repoFullName).value;
+    const harnessCmd = document.getElementById('harness-' + repoFullName).value;
 
     const payload = {
         fullName: repoFullName,
         active: active,
         slackWebhookUrl: slackUrl,
-        customModel: customModel
+        customModel: customModel,
+        harnessCmd: harnessCmd
     };
+
 
     fetch('/api/settings', {
         method: 'POST',

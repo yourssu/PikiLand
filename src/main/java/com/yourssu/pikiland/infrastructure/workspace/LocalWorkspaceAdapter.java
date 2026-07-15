@@ -1,5 +1,6 @@
 package com.yourssu.pikiland.infrastructure.workspace;
 
+import com.yourssu.pikiland.domain.model.HarnessResult;
 import com.yourssu.pikiland.domain.model.PatchInstruction;
 import com.yourssu.pikiland.domain.port.WorkspacePort;
 import org.springframework.stereotype.Component;
@@ -326,5 +327,33 @@ public class LocalWorkspaceAdapter implements WorkspacePort {
     private static String redactSecrets(String text) {
         if (text == null) return null;
         return text.replaceAll("x-access-token:[^@\\s]+@", "x-access-token:***@");
+    }
+
+    @Override
+    public HarnessResult runHarness(Path workspace, String command) {
+        try {
+            File dir = workspace.toFile();
+            ProcessBuilder pb = new ProcessBuilder("sh", "-c", command);
+            pb.directory(dir);
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+
+            // Capture output logs
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("[Harness] " + line);
+                    output.append(line).append("\n");
+                }
+            }
+            int exitCode = p.waitFor();
+            System.out.println("[Harness] Command '" + command + "' exited with code: " + exitCode);
+            return new HarnessResult(exitCode == 0, output.toString());
+        } catch (Exception e) {
+            String errMsg = "Failed to execute command '" + command + "': " + e.getMessage();
+            System.err.println("[Harness] " + errMsg);
+            return new HarnessResult(false, errMsg);
+        }
     }
 }

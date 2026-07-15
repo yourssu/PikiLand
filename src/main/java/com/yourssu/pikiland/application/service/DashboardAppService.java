@@ -37,7 +37,13 @@ public class DashboardAppService {
 
             // GitHub paginates at 100 per page; follow Link: rel="next" until exhausted
             String nextUrl = "https://api.github.com/user/repos?per_page=100&page=1";
+            int pageCount = 0;
             while (nextUrl != null) {
+                pageCount++;
+                if (pageCount > 250) {
+                    System.err.println("[DashboardAppService] Aborting pagination: exceeded 250 pages.");
+                    break;
+                }
                 ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                         nextUrl,
                         HttpMethod.GET,
@@ -52,9 +58,9 @@ public class DashboardAppService {
                             Optional<RepoSettings> settingsOpt = repoSettingsRepository.findById(fullName);
                             if (settingsOpt.isPresent()) {
                                 RepoSettings s = settingsOpt.get();
-                                repos.add(new RepoSettingsDto(s.getRepositoryFullName(), s.isActive(), s.getSlackWebhookUrl(), s.getCustomModel()));
+                                repos.add(new RepoSettingsDto(s.getRepositoryFullName(), s.isActive(), s.getSlackWebhookUrl(), s.getCustomModel(), s.getHarnessCmd()));
                             } else {
-                                repos.add(new RepoSettingsDto(fullName, false, "", ""));
+                                repos.add(new RepoSettingsDto(fullName, false, "", "", ""));
                             }
                         }
                     }
@@ -92,7 +98,8 @@ public class DashboardAppService {
     }
 
     public void updateRepoSettings(RepoSettingsDto dto) {
-        RepoSettings settings = new RepoSettings(dto.getFullName(), dto.isActive(), dto.getSlackWebhookUrl(), dto.getCustomModel());
+        RepoSettings settings = new RepoSettings(dto.getFullName(), dto.isActive(), dto.getSlackWebhookUrl(), dto.getCustomModel(), dto.getHarnessCmd());
         repoSettingsRepository.save(settings);
     }
+
 }

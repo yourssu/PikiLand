@@ -40,7 +40,8 @@ public class RepoSettingsRepositoryImpl implements RepoSettingsRepository {
                 entity.getRepositoryFullName(),
                 entity.isActive(),
                 entity.getSlackWebhookUrl(),
-                entity.getCustomModel()
+                entity.getCustomModel(),
+                entity.getHarnessCmd()
         );
     }
 
@@ -49,7 +50,9 @@ public class RepoSettingsRepositoryImpl implements RepoSettingsRepository {
                 domain.getRepositoryFullName(),
                 domain.isActive(),
                 domain.getSlackWebhookUrl(),
-                domain.getCustomModel()
+                domain.getCustomModel(),
+                domain.getHarnessCmd()
         );
     }
+
 }

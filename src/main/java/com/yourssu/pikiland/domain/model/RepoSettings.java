@@ -5,8 +5,9 @@ public class RepoSettings {
     private boolean active;
     private String slackWebhookUrl;
     private String customModel;
+    private String harnessCmd;
 
-    public RepoSettings(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel) {
+    public RepoSettings(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel, String harnessCmd) {
         if (repositoryFullName == null || repositoryFullName.isBlank()) {
             throw new IllegalArgumentException("Repository full name cannot be null or empty");
         }
@@ -14,6 +15,7 @@ public class RepoSettings {
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
         this.customModel = customModel;
+        this.harnessCmd = harnessCmd;
     }
 
     public void configureSlack(String webhookUrl) {
@@ -25,6 +27,10 @@ public class RepoSettings {
 
     public void configureCustomModel(String model) {
         this.customModel = model;
+    }
+
+    public void configureHarnessCmd(String harnessCmd) {
+        this.harnessCmd = harnessCmd;
     }
 
     public void toggleActive(boolean active) {
@@ -46,4 +52,9 @@ public class RepoSettings {
     public String getCustomModel() {
         return customModel;
     }
+
+    public String getHarnessCmd() {
+        return harnessCmd;
+    }
 }
+
