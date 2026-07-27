@@ -1,17 +1,4 @@
-# --- Stage 1: Build Jar ---
-FROM eclipse-temurin:21-jdk-alpine AS builder
-WORKDIR /app
-
-# Copy gradle wrapper & build configuration
-COPY gradle gradle
-COPY gradlew build.gradle.kts settings.gradle.kts ./
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
-
-# Copy source code and build executable jar
-COPY src src
-RUN ./gradlew bootJar --no-daemon -x test
-
-# --- Stage 2: Production Runtime ---
+# --- Production Runtime (Pre-built Jar) ---
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
@@ -23,8 +10,8 @@ RUN apk add --no-cache tzdata && \
 # Create data directory for persistence
 RUN mkdir -p /app/data
 
-# Copy built jar from builder
-COPY --from=builder /app/build/libs/*.jar app.jar
+# Copy pre-built executable jar from build directory
+COPY build/libs/*.jar app.jar
 
 EXPOSE 8080
 

@@ -134,7 +134,11 @@ App 생성 완료 후 아래 5개 값을 기록해 둡니다:
 
 ---
 
-## 4. Step 3: Docker & Docker Compose Deployment
+## 5. Step 3: Docker Compose Deployment (GHCR Image Pull)
+
+PikiLand는 GitHub Actions 워크플로(`../.github/workflows/docker-build.yml`)에 의해 `main` 브랜치 커밋 시 **GHCR (GitHub Container Registry)**로 도커 이미지가 자동 빌드되어 푸시됩니다.
+
+대상 서버에서는 소스 코드 컴파일이나 로컬 빌드 과정 없이, 이미 빌드된 도커 이미지를 다운로드 받아 즉시 실행합니다.
 
 ### 1) `.env` 파일 설정
 프로젝트 루트 디렉터리에 `.env` 파일을 생성하고 작성합니다.
@@ -142,6 +146,9 @@ App 생성 완료 후 아래 5개 값을 기록해 둡니다:
 ```env
 # 중앙 어드민 사용자 (본인의 GitHub 사용자명)
 PIKILAND_ADMIN_USERS="your_github_username"
+
+# GHCR 이미지 지정 (기본값: ghcr.io/yourssu/pikiland:latest)
+PIKILAND_IMAGE="ghcr.io/yourssu/pikiland:latest"
 
 # PostgreSQL 데이터베이스 설정
 DATABASE_URL="jdbc:postgresql://postgres:5432/pikilanddb"
@@ -151,13 +158,23 @@ DATABASE_PASSWORD="pikiland_secure_password_123!"
 DEBUG="false"
 ```
 
-### 2) Docker 컨테이너 빌드 및 실행
-
+### 2) (Private 리포지토리인 경우) GHCR 도커 로그인
 ```bash
-docker compose up -d --build
+# read:packages 권한이 있는 Personal Access Token으로 로그인
+echo $GHCR_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 ```
 
-### 3) 실행 상태 및 로그 확인
+### 3) 사전 빌드된 최신 도커 이미지 다운로드 및 실행
+
+```bash
+# GHCR에서 최신 이미지 Pull
+docker compose pull
+
+# 백그라운드로 컨테이너 실행
+docker compose up -d
+```
+
+### 4) 실행 상태 및 로그 확인
 
 ```bash
 docker compose ps
