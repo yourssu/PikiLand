@@ -67,6 +67,7 @@ public class SelfHealingAppService {
             inputs.put("slack_webhook_url", settings.getSlackWebhookUrl() != null ? settings.getSlackWebhookUrl() : "");
             inputs.put("ai_model", settings.getCustomModel() != null ? settings.getCustomModel() : "");
             inputs.put("harness_cmd", settings.getHarnessCmd() != null ? settings.getHarnessCmd() : "");
+            inputs.put("ralph_max_retries", String.valueOf(settings.getRalphMaxRetries() > 0 ? settings.getRalphMaxRetries() : 3));
 
 
             // Trigger workflow dispatch on the default branch (where pikiland.yml exists)

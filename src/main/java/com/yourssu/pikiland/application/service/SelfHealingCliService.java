@@ -8,6 +8,7 @@ import com.yourssu.pikiland.domain.port.AiAgentPort;
 import com.yourssu.pikiland.domain.port.GithubAuthPort;
 import com.yourssu.pikiland.domain.port.NotifierPort;
 import com.yourssu.pikiland.domain.port.WorkspacePort;
+import com.yourssu.pikiland.domain.service.LogTruncator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -16,8 +17,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -28,17 +31,20 @@ public class SelfHealingCliService {
     private final AiAgentPort anthropicAdapter;
     private final NotifierPort notifierPort;
     private final GithubAuthPort githubAuthPort;
+    private final LogTruncator logTruncator;
 
     public SelfHealingCliService(WorkspacePort workspacePort,
                                   @Qualifier("openAiAdapter") AiAgentPort openAiAdapter,
                                   @Qualifier("anthropicAdapter") AiAgentPort anthropicAdapter,
                                   NotifierPort notifierPort,
-                                  GithubAuthPort githubAuthPort) {
+                                  GithubAuthPort githubAuthPort,
+                                  LogTruncator logTruncator) {
         this.workspacePort = workspacePort;
         this.openAiAdapter = openAiAdapter;
         this.anthropicAdapter = anthropicAdapter;
         this.notifierPort = notifierPort;
         this.githubAuthPort = githubAuthPort;
+        this.logTruncator = logTruncator;
     }
 
     public void run() {
@@ -154,7 +160,7 @@ public class SelfHealingCliService {
 
 
                     List<List<PatchInstruction>> triedPatches = new ArrayList<>();
-                    Set<String> triedHarnessOutputs = new HashSet<>();
+                    Map<String, Integer> triedHarnessOutputCounts = new HashMap<>();
 
                     int rRetries = 3;
                     String maxRetriesStr = getEnvOrProperty("PIKILAND_RALPH_MAX_RETRIES");
@@ -202,22 +208,22 @@ public class SelfHealingCliService {
                                 break;
                             }
 
-                            // Capture and truncate output logs to the last 4000 characters
+                            // Capture and truncate output logs using LogTruncator (Head + Tail + Error Context)
                             String rawOutput = hResAfter.getOutput();
                             if (rawOutput == null) {
                                 rawOutput = "";
                             }
-                            String trimmedOutput = rawOutput.trim();
-                            if (trimmedOutput.length() > 4000) {
-                                trimmedOutput = "... [Truncated] ...\n" + trimmedOutput.substring(trimmedOutput.length() - 4000);
-                            }
+                            String trimmedOutput = logTruncator.truncateLogForAi(rawOutput, 150);
 
-                            // Infinite loop check: duplicate output log check
-                            if (triedHarnessOutputs.contains(trimmedOutput)) {
-                                System.err.println("[Ralph Loop] Infinite Loop Warning: Same harness output detected. Aborting refinement.");
+                            // Infinite loop check: allow 1 extra chance when duplicate output log detected
+                            int outputCount = triedHarnessOutputCounts.getOrDefault(trimmedOutput, 0) + 1;
+                            triedHarnessOutputCounts.put(trimmedOutput, outputCount);
+                            if (outputCount > 2) {
+                                System.err.println("[Ralph Loop] Infinite Loop Warning: Same harness output detected again after retry chance. Aborting refinement.");
                                 break;
+                            } else if (outputCount == 2) {
+                                System.out.println("[Ralph Loop] Same harness output detected. Giving AI 1 extra chance to refine...");
                             }
-                            triedHarnessOutputs.add(trimmedOutput);
 
                             // Call refinePatch to get a new set of instructions
                             System.out.println("[Ralph Loop] Requesting patch refinement from AI agent...");

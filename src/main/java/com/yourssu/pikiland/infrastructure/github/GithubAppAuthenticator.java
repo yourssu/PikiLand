@@ -1,6 +1,8 @@
 package com.yourssu.pikiland.infrastructure.github;
 
 import com.yourssu.pikiland.domain.port.GithubAuthPort;
+import com.yourssu.pikiland.domain.port.SystemSettingsRepository;
+import com.yourssu.pikiland.domain.model.SystemSettings;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -21,6 +23,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -41,12 +44,15 @@ public class GithubAppAuthenticator implements GithubAuthPort {
      * By disabling auto-follow we can strip the header before fetching from S3.
      */
     private final RestTemplate noRedirectRestTemplate;
+    private final SystemSettingsRepository systemSettingsRepository;
 
     public GithubAppAuthenticator(
             @Value("${app.github.app-id:}") String appId,
-            @Value("${app.github.private-key-path:github-app-private-key.pem}") String privateKeyPath) {
+            @Value("${app.github.private-key-path:github-app-private-key.pem}") String privateKeyPath,
+            SystemSettingsRepository systemSettingsRepository) {
         this.appId = appId;
         this.privateKeyPath = privateKeyPath;
+        this.systemSettingsRepository = systemSettingsRepository;
         
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000);
@@ -66,8 +72,19 @@ public class GithubAppAuthenticator implements GithubAuthPort {
     }
 
     private PrivateKey getPrivateKey() throws Exception {
-        byte[] keyBytes = Files.readAllBytes(Paths.get(privateKeyPath));
-        String temp = new String(keyBytes, StandardCharsets.UTF_8)
+        String keyContent = null;
+        if (systemSettingsRepository != null) {
+            Optional<SystemSettings> sysOpt = systemSettingsRepository.findGlobalSettings();
+            if (sysOpt.isPresent() && sysOpt.get().getGithubPrivateKeyContent() != null && !sysOpt.get().getGithubPrivateKeyContent().isBlank()) {
+                keyContent = sysOpt.get().getGithubPrivateKeyContent();
+            }
+        }
+        if (keyContent == null) {
+            byte[] keyBytes = Files.readAllBytes(Paths.get(privateKeyPath));
+            keyContent = new String(keyBytes, StandardCharsets.UTF_8);
+        }
+
+        String temp = keyContent
                 .replaceAll("-----BEGIN PRIVATE KEY-----", "")
                 .replaceAll("-----END PRIVATE KEY-----", "")
                 .replaceAll("-----BEGIN RSA PRIVATE KEY-----", "")
@@ -79,13 +96,23 @@ public class GithubAppAuthenticator implements GithubAuthPort {
         return kf.generatePrivate(spec);
     }
 
+    private String getEffectiveAppId() {
+        if (systemSettingsRepository != null) {
+            Optional<SystemSettings> sysOpt = systemSettingsRepository.findGlobalSettings();
+            if (sysOpt.isPresent() && sysOpt.get().getGithubAppId() != null && !sysOpt.get().getGithubAppId().isBlank()) {
+                return sysOpt.get().getGithubAppId();
+            }
+        }
+        return appId;
+    }
+
     private String generateJwt() {
         try {
             PrivateKey privateKey = getPrivateKey();
             return Jwts.builder()
                     .issuedAt(new Date(System.currentTimeMillis() - 60000))
                     .expiration(new Date(System.currentTimeMillis() + 600000))
-                    .issuer(appId)
+                    .issuer(getEffectiveAppId())
                     .signWith(privateKey, Jwts.SIG.RS256)
                     .compact();
         } catch (Exception e) {

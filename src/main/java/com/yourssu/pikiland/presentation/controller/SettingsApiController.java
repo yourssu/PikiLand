@@ -2,6 +2,8 @@ package com.yourssu.pikiland.presentation.controller;
 
 import com.yourssu.pikiland.application.service.DashboardAppService;
 import com.yourssu.pikiland.application.dto.RepoSettingsDto;
+import com.yourssu.pikiland.application.dto.SystemSettingsDto;
+import com.yourssu.pikiland.presentation.security.AdminSecurityChecker;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class SettingsApiController {
 
     private final DashboardAppService dashboardAppService;
+    private final AdminSecurityChecker adminSecurityChecker;
 
     /**
      * Ownership check is skipped when dry-run is true (local/debug/integration-test environment).
@@ -22,8 +25,28 @@ public class SettingsApiController {
     @Value("${app.ai.dry-run:false}")
     private boolean dryRun;
 
-    public SettingsApiController(DashboardAppService dashboardAppService) {
+    public SettingsApiController(DashboardAppService dashboardAppService, AdminSecurityChecker adminSecurityChecker) {
         this.dashboardAppService = dashboardAppService;
+        this.adminSecurityChecker = adminSecurityChecker;
+    }
+
+    @GetMapping("/system")
+    public ResponseEntity<SystemSettingsDto> getSystemSettings(@AuthenticationPrincipal OAuth2User oauth2User) {
+        if (!adminSecurityChecker.isAdmin(oauth2User)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(dashboardAppService.getSystemSettings());
+    }
+
+    @PostMapping("/system")
+    public ResponseEntity<Void> updateSystemSettings(
+            @RequestBody SystemSettingsDto dto,
+            @AuthenticationPrincipal OAuth2User oauth2User) {
+        if (!adminSecurityChecker.isAdmin(oauth2User)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        dashboardAppService.updateSystemSettings(dto);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping
@@ -41,9 +64,6 @@ public class SettingsApiController {
             String repoOwner = parts[0];
             String authenticatedUser = oauth2User.getAttribute("login");
 
-            // Personal repos: owner segment must match the logged-in GitHub username.
-            // Note: organisation repos require a separate GitHub API membership check
-            // (tracked as a separate issue) — this covers the most common personal-repo case.
             if (!repoOwner.equals(authenticatedUser)) {
                 System.err.println("[Settings] FORBIDDEN — user '" + authenticatedUser +
                         "' attempted to modify settings for repo '" + dto.getFullName() + "'");
@@ -53,5 +73,35 @@ public class SettingsApiController {
 
         dashboardAppService.updateRepoSettings(dto);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/harness/approve")
+    public ResponseEntity<RepoSettingsDto> approveHarness(
+            @RequestBody RepoSettingsDto dto,
+            @AuthenticationPrincipal OAuth2User oauth2User) {
+        if (!dryRun && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        RepoSettingsDto result = dashboardAppService.approveInferredHarness(dto.getFullName());
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/harness/infer")
+    public ResponseEntity<RepoSettingsDto> inferHarness(
+            @RequestBody RepoSettingsDto dto,
+            @AuthenticationPrincipal OAuth2User oauth2User) {
+        if (!dryRun && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        RepoSettingsDto result = dashboardAppService.reInferHarness(dto.getFullName());
+        return ResponseEntity.ok(result);
+    }
+
+    private boolean isOwner(String fullName, OAuth2User oauth2User) {
+        if (fullName == null || oauth2User == null) return false;
+        String[] parts = fullName.split("/", 2);
+        if (parts.length < 2 || parts[0].isBlank()) return false;
+        String authenticatedUser = oauth2User.getAttribute("login");
+        return parts[0].equals(authenticatedUser);
     }
 }

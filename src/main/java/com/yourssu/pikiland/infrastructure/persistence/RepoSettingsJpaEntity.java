@@ -1,6 +1,10 @@
 package com.yourssu.pikiland.infrastructure.persistence;
 
+import com.yourssu.pikiland.domain.model.HarnessSource;
+import com.yourssu.pikiland.domain.model.HarnessStatus;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -14,15 +18,29 @@ public class RepoSettingsJpaEntity {
     private String slackWebhookUrl;
     private String customModel;
     private String harnessCmd;
+    private String inferredHarnessCmd;
+
+    @Enumerated(EnumType.STRING)
+    private HarnessStatus harnessStatus;
+
+    @Enumerated(EnumType.STRING)
+    private HarnessSource harnessSource;
+
+    private int ralphMaxRetries = 3;
 
     public RepoSettingsJpaEntity() {}
 
-    public RepoSettingsJpaEntity(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel, String harnessCmd) {
+    public RepoSettingsJpaEntity(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel,
+                                String harnessCmd, String inferredHarnessCmd, HarnessStatus harnessStatus, HarnessSource harnessSource, int ralphMaxRetries) {
         this.repositoryFullName = repositoryFullName;
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
         this.customModel = customModel;
         this.harnessCmd = harnessCmd;
+        this.inferredHarnessCmd = inferredHarnessCmd;
+        this.harnessStatus = harnessStatus;
+        this.harnessSource = harnessSource;
+        this.ralphMaxRetries = ralphMaxRetries > 0 ? ralphMaxRetries : 3;
     }
 
     public String getRepositoryFullName() {
@@ -64,5 +82,38 @@ public class RepoSettingsJpaEntity {
     public void setHarnessCmd(String harnessCmd) {
         this.harnessCmd = harnessCmd;
     }
+
+    public String getInferredHarnessCmd() {
+        return inferredHarnessCmd;
+    }
+
+    public void setInferredHarnessCmd(String inferredHarnessCmd) {
+        this.inferredHarnessCmd = inferredHarnessCmd;
+    }
+
+    public HarnessStatus getHarnessStatus() {
+        return harnessStatus;
+    }
+
+    public void setHarnessStatus(HarnessStatus harnessStatus) {
+        this.harnessStatus = harnessStatus;
+    }
+
+    public HarnessSource getHarnessSource() {
+        return harnessSource;
+    }
+
+    public void setHarnessSource(HarnessSource harnessSource) {
+        this.harnessSource = harnessSource;
+    }
+
+    public int getRalphMaxRetries() {
+        return ralphMaxRetries;
+    }
+
+    public void setRalphMaxRetries(int ralphMaxRetries) {
+        this.ralphMaxRetries = ralphMaxRetries;
+    }
 }
+
 

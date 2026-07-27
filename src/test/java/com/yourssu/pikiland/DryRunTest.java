@@ -45,8 +45,10 @@ public class DryRunTest {
                         } else if (val.startsWith("'") && val.endsWith("'")) {
                             val = val.substring(1, val.length() - 1);
                         }
-                        System.setProperty(key, val);
-                        System.out.println("[DryRunTest Env] Loaded: " + key + " = " + val);
+                        if (val != null && !val.isBlank()) {
+                            System.setProperty(key, val);
+                            System.out.println("[DryRunTest Env] Loaded: " + key + " = " + val);
+                        }
                     }
                 }
             }

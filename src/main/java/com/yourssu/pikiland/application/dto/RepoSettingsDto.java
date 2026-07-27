@@ -6,15 +6,28 @@ public class RepoSettingsDto {
     private String slackWebhookUrl;
     private String customModel;
     private String harnessCmd;
+    private String inferredHarnessCmd;
+    private String harnessStatus;
+    private String harnessSource;
+    private int ralphMaxRetries;
 
     public RepoSettingsDto() {}
 
     public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel, String harnessCmd) {
+        this(fullName, active, slackWebhookUrl, customModel, harnessCmd, "", "NONE", "NONE", 3);
+    }
+
+    public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel,
+                           String harnessCmd, String inferredHarnessCmd, String harnessStatus, String harnessSource, int ralphMaxRetries) {
         this.fullName = fullName;
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
         this.customModel = customModel;
         this.harnessCmd = harnessCmd;
+        this.inferredHarnessCmd = inferredHarnessCmd;
+        this.harnessStatus = harnessStatus;
+        this.harnessSource = harnessSource;
+        this.ralphMaxRetries = ralphMaxRetries > 0 ? ralphMaxRetries : 3;
     }
 
     public String getFullName() {
@@ -56,5 +69,38 @@ public class RepoSettingsDto {
     public void setHarnessCmd(String harnessCmd) {
         this.harnessCmd = harnessCmd;
     }
+
+    public String getInferredHarnessCmd() {
+        return inferredHarnessCmd;
+    }
+
+    public void setInferredHarnessCmd(String inferredHarnessCmd) {
+        this.inferredHarnessCmd = inferredHarnessCmd;
+    }
+
+    public String getHarnessStatus() {
+        return harnessStatus;
+    }
+
+    public void setHarnessStatus(String harnessStatus) {
+        this.harnessStatus = harnessStatus;
+    }
+
+    public String getHarnessSource() {
+        return harnessSource;
+    }
+
+    public void setHarnessSource(String harnessSource) {
+        this.harnessSource = harnessSource;
+    }
+
+    public int getRalphMaxRetries() {
+        return ralphMaxRetries;
+    }
+
+    public void setRalphMaxRetries(int ralphMaxRetries) {
+        this.ralphMaxRetries = ralphMaxRetries;
+    }
 }
+
 

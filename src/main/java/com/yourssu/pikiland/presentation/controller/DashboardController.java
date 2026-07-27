@@ -2,6 +2,7 @@ package com.yourssu.pikiland.presentation.controller;
 
 import com.yourssu.pikiland.application.service.DashboardAppService;
 import com.yourssu.pikiland.application.dto.RepoSettingsDto;
+import com.yourssu.pikiland.presentation.security.AdminSecurityChecker;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
@@ -16,9 +17,11 @@ import java.util.List;
 public class DashboardController {
 
     private final DashboardAppService dashboardAppService;
+    private final AdminSecurityChecker adminSecurityChecker;
 
-    public DashboardController(DashboardAppService dashboardAppService) {
+    public DashboardController(DashboardAppService dashboardAppService, AdminSecurityChecker adminSecurityChecker) {
         this.dashboardAppService = dashboardAppService;
+        this.adminSecurityChecker = adminSecurityChecker;
     }
 
     @GetMapping("/")
@@ -33,13 +36,15 @@ public class DashboardController {
             @RegisteredOAuth2AuthorizedClient("github") OAuth2AuthorizedClient authorizedClient) {
 
         String accessToken = authorizedClient.getAccessToken().getTokenValue();
-        String username = oauth2User.getAttribute("login");
-        
+        String username = oauth2User != null ? oauth2User.getAttribute("login") : "anonymous";
+        boolean isAdmin = adminSecurityChecker.isAdmin(oauth2User);
+
         List<RepoSettingsDto> repos = dashboardAppService.getUserRepositories(accessToken);
-        
+
         model.addAttribute("username", username);
+        model.addAttribute("isAdmin", isAdmin);
         model.addAttribute("repos", repos);
-        
+
         return "dashboard";
     }
 }

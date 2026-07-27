@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <title>Dashboard 🏰 PikiLand</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/main.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/css/main.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
     <div class="glow-bg"></div>
@@ -14,14 +14,65 @@
             <div class="logo">🏰 PikiLand</div>
             <div class="user-control">
                 <span class="username" th:text="${username}">username</span>
+                <span class="badge badge-active" th:if="${isAdmin}" style="margin-right: 8px;">ADMIN</span>
                 <a href="/logout" class="btn btn-secondary btn-logout">Logout</a>
             </div>
         </header>
 
         <main class="dashboard-main">
+            <!-- GitHub Action Secrets Guide Card (All Users) -->
+            <div class="glass-card guide-card" style="margin-bottom: 24px; border-left: 4px solid #6366f1; background: rgba(99, 102, 241, 0.08);">
+                <h3 style="margin-top: 0; color: #818cf8;">🔑 Required GitHub Actions Secrets Guide</h3>
+                <p style="margin: 6px 0; color: #cbd5e1; font-size: 0.95rem;">
+                    To enable PikiLand's autonomous AI repair in your target repository's GitHub Actions, configure the following secrets under 
+                    <strong>Repository Settings → Secrets and variables → Actions</strong>:
+                </p>
+                <div style="display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap;">
+                    <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; font-family: monospace;">
+                        <strong style="color: #38bdf8;">OPENAI_API_KEY</strong>: OpenAI API key (for GPT models)
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; font-family: monospace;">
+                        <strong style="color: #38bdf8;">ANTHROPIC_API_KEY</strong>: Anthropic API key (for Claude models)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global System Settings Panel (Admin Only) -->
+            <div th:if="${isAdmin}" class="glass-card admin-card" style="margin-bottom: 32px; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>
+                        <h2 style="margin: 0; color: #fbbf24;">⚙️ Central System Settings (Admin Only)</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #94a3b8;">Manage PikiLand App authentications and OAuth keys across the central server.</p>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="saveSystemSettings()">Save System Settings</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                    <div class="form-group">
+                        <label for="sys-githubAppId">GitHub App ID</label>
+                        <input type="text" id="sys-githubAppId" placeholder="123456" />
+                    </div>
+                    <div class="form-group">
+                        <label for="sys-githubWebhookSecret">Webhook Secret</label>
+                        <input type="password" id="sys-githubWebhookSecret" placeholder="••••••••" />
+                    </div>
+                    <div class="form-group">
+                        <label for="sys-githubClientId">OAuth Client ID</label>
+                        <input type="text" id="sys-githubClientId" placeholder="Iv1.xxxxxx" />
+                    </div>
+                    <div class="form-group">
+                        <label for="sys-githubClientSecret">OAuth Client Secret</label>
+                        <input type="password" id="sys-githubClientSecret" placeholder="••••••••" />
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="sys-githubPrivateKeyContent">GitHub App Private Key (PEM Content)</label>
+                        <textarea id="sys-githubPrivateKeyContent" rows="4" style="font-family: monospace; font-size: 0.85rem;" placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"></textarea>
+                    </div>
+                </div>
+            </div>
+
             <div class="main-header">
                 <h1>Active Repositories</h1>
-                <p>Configure self-healing AI and Slack webhook endpoints per repository.</p>
+                <p>Configure self-healing AI, Ralph max retries, and Slack webhook endpoints per repository.</p>
             </div>
 
             <div class="repo-grid">
@@ -33,32 +84,58 @@
                 <!-- Repository cards -->
                 <div th:each="repo : ${repos}" class="glass-card repo-card">
                     <div class="repo-meta">
-                        <h3 class="repo-title" th:text="${repo.fullName}">owner/repo</h3>
+                        <div>
+                            <h3 class="repo-title" th:text="${repo.fullName}">owner/repo</h3>
+                            <div class="status-badges" style="margin-top: 4px;">
+                                <span class="badge" th:classappend="${repo.harnessStatus == 'ACTIVE' ? 'badge-active' : (repo.harnessStatus == 'PENDING_CONFIRMATION' ? 'badge-pending' : 'badge-none')}"
+                                      th:text="${'Harness Status: ' + repo.harnessStatus}">Harness Status</span>
+                                <span class="badge badge-info" th:if="${repo.harnessSource != 'NONE'}"
+                                      th:text="${'Source: ' + repo.harnessSource}">Source</span>
+                            </div>
+                        </div>
                         <label class="switch">
-                            <input type="checkbox" th:id="'toggle-' + ${repo.fullName}" th:checked="${repo.active}">
+                            <input type="checkbox" th:id="|toggle-${repo.fullName}|" th:checked="${repo.active}" />
                             <span class="slider"></span>
                         </label>
                     </div>
                     
                     <div class="repo-details">
                         <div class="form-group">
-                            <label>Slack Webhook URL</label>
-                            <input type="text" th:id="'slack-' + ${repo.fullName}" th:value="${repo.slackWebhookUrl}" placeholder="https://hooks.slack.com/services/...">
+                            <label th:for="|slack-${repo.fullName}|">Slack Webhook URL</label>
+                            <input type="text" th:id="|slack-${repo.fullName}|" th:value="${repo.slackWebhookUrl}" placeholder="https://hooks.slack.com/services/..." />
                         </div>
                         
-                        <div class="form-group">
-                            <label>Custom AI Model (Optional)</label>
-                            <input type="text" th:id="'model-' + ${repo.fullName}" th:value="${repo.customModel}" placeholder="gpt-4o">
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label th:for="|model-${repo.fullName}|">Custom AI Model (Optional)</label>
+                                <input type="text" th:id="|model-${repo.fullName}|" th:value="${repo.customModel}" placeholder="gpt-4o" />
+                            </div>
+                            <div class="form-group">
+                                <label th:for="|ralph-${repo.fullName}|">Ralph Max Retries</label>
+                                <input type="number" th:id="|ralph-${repo.fullName}|" th:value="${repo.ralphMaxRetries}" min="1" max="10" placeholder="3" />
+                            </div>
+                        </div>
+
+                        <!-- Inferred Harness Banner -->
+                        <div th:if="${repo.inferredHarnessCmd != null and not repo.inferredHarnessCmd.isBlank()}" class="inferred-box" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+                            <label style="color: #ffc107; font-weight: 600;">💡 Auto-Inferred Test Command (Pending Approval):</label>
+                            <div style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; margin: 6px 0;" th:text="${repo.inferredHarnessCmd}">./gradlew test</div>
+                            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 4px 10px;" th:onclick="|approveHarness('${repo.fullName}')|">Approve Inferred Command</button>
                         </div>
 
                         <div class="form-group">
-                            <label>Harness Verification Command (Optional)</label>
-                            <input type="text" th:id="'harness-' + ${repo.fullName}" th:value="${repo.harnessCmd}" placeholder="./gradlew test">
+                            <label th:for="|harness-${repo.fullName}|">Harness Verification Command</label>
+                            <input type="text" th:id="|harness-${repo.fullName}|" th:value="${repo.harnessCmd}" placeholder="./gradlew test" />
                         </div>
 
-                        <button class="btn btn-primary btn-save" th:onclick="saveSettings([[${repo.fullName}]])">
-                            Save Configuration
-                        </button>
+                        <div class="button-group" style="display: flex; gap: 8px;">
+                            <button type="button" class="btn btn-primary btn-save" style="flex: 1;" th:onclick="|saveSettings('${repo.fullName}')|">
+                                Save Configuration
+                            </button>
+                            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" th:onclick="|inferHarness('${repo.fullName}')|">
+                                Re-infer Command
+                            </button>
+                        </div>
                     </div>
 
                 </div>
