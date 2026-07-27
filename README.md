@@ -140,9 +140,10 @@ Dry Run은 `OPENAI_API_KEY` 또는 `ANTHROPIC_API_KEY`를 이용해 실제 OpenA
 
 ## 문서
 
-| 문서 | 답하는 질문 |
-| --- | --- |
-| [Product Design](docs/DESIGN.md) | 왜 만들고 무엇을 우선하는가? |
+| 문서 | 답하는 질문                             |
+| --- |-----------------------------------------|
+| [Product Design](docs/DESIGN.md) | 왜 만들고 무엇을 우선하는가?            |
 | [Architecture & Data Pipeline](docs/ARCHITECTURE_AND_DATA_PIPELINE.md) | 어떤 구조와 검증으로 목표를 달성하는가? |
-| [Competitive Research](docs/COMPETITORS.md) | 기존 제품과 무엇이 다른가? |
-| [Future Ideas](docs/FUTURE_IDEAS.md) | MVP 이후 무엇을 다시 검토할 것인가? |
+| [Deployment Guide](docs/DEPLOYMENT.md) | 어떻게 배포하고 설정하는가?             |
+| [Competitive Research](docs/COMPETITORS.md) | 기존 제품과 무엇이 다른가?              |
+| [Future Ideas](docs/FUTURE_IDEAS.md) | MVP 이후 무엇을 다시 검토할 것인가?     |
