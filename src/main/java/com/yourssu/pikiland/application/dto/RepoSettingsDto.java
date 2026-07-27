@@ -5,6 +5,7 @@ public class RepoSettingsDto {
     private boolean active;
     private String slackWebhookUrl;
     private String customModel;
+    private String customBaseUrl;
     private String harnessCmd;
     private String inferredHarnessCmd;
     private String harnessStatus;
@@ -14,15 +15,16 @@ public class RepoSettingsDto {
     public RepoSettingsDto() {}
 
     public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel, String harnessCmd) {
-        this(fullName, active, slackWebhookUrl, customModel, harnessCmd, "", "NONE", "NONE", 3);
+        this(fullName, active, slackWebhookUrl, customModel, "", harnessCmd, "", "NONE", "NONE", 3);
     }
 
-    public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel,
+    public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel, String customBaseUrl,
                            String harnessCmd, String inferredHarnessCmd, String harnessStatus, String harnessSource, int ralphMaxRetries) {
         this.fullName = fullName;
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
         this.customModel = customModel;
+        this.customBaseUrl = customBaseUrl;
         this.harnessCmd = harnessCmd;
         this.inferredHarnessCmd = inferredHarnessCmd;
         this.harnessStatus = harnessStatus;
@@ -60,6 +62,14 @@ public class RepoSettingsDto {
 
     public void setCustomModel(String customModel) {
         this.customModel = customModel;
+    }
+
+    public String getCustomBaseUrl() {
+        return customBaseUrl;
+    }
+
+    public void setCustomBaseUrl(String customBaseUrl) {
+        this.customBaseUrl = customBaseUrl;
     }
 
     public String getHarnessCmd() {

@@ -19,8 +19,8 @@ public class WebhookAppService {
     @Value("${app.github.webhook-secret:}")
     private String webhookSecret;
 
-    @Value("${app.ai.dry-run:false}")
-    private boolean dryRun;
+    @Value("${app.debug:false}")
+    private boolean isDebug;
 
     public WebhookAppService(SelfHealingAppService selfHealingAppService) {
         this.selfHealingAppService = selfHealingAppService;
@@ -29,22 +29,18 @@ public class WebhookAppService {
     /**
      * Verifies the GitHub webhook HMAC-SHA256 signature.
      * Verification is skipped when:
-     * - {@code app.github.webhook-secret} is blank (not configured — safe for local/debug)
-     * - {@code app.ai.dry-run} is true (dry-run / integration-test mode)
+     * - {@code app.debug} is true (debug mode)
      *
      * @return true if the request is trusted, false if signature mismatch
      */
     private boolean isTrustedRequest(String payload, String signature) {
-        // Dry-run/debug is the ONLY sanctioned bypass. A non-dry-run (production) deployment
-        // MUST have a webhook secret configured; a blank secret there is a misconfiguration,
-        // so we fail closed rather than trust unsigned requests.
-        if (dryRun) {
-            System.out.println("[Webhook] Signature verification SKIPPED (dry-run mode)");
+        if (isDebug) {
+            System.out.println("[Webhook] Signature verification SKIPPED (debug mode)");
             return true;
         }
         if (webhookSecret == null || webhookSecret.isBlank()) {
             System.err.println("[Webhook] REJECTED — GITHUB_WEBHOOK_SECRET is not configured in a " +
-                    "non-dry-run environment. Refusing to trust unsigned requests.");
+                    "production environment. Refusing to trust unsigned requests.");
             return false;
         }
 

@@ -19,11 +19,11 @@ public class SettingsApiController {
     private final AdminSecurityChecker adminSecurityChecker;
 
     /**
-     * Ownership check is skipped when dry-run is true (local/debug/integration-test environment).
+     * Ownership check is skipped when isDebug is true (local/debug environment).
      * In production, only the repository owner may modify its PikiLand settings.
      */
-    @Value("${app.ai.dry-run:false}")
-    private boolean dryRun;
+    @Value("${app.debug:false}")
+    private boolean isDebug;
 
     public SettingsApiController(DashboardAppService dashboardAppService, AdminSecurityChecker adminSecurityChecker) {
         this.dashboardAppService = dashboardAppService;
@@ -55,8 +55,8 @@ public class SettingsApiController {
             @AuthenticationPrincipal OAuth2User oauth2User) {
 
         // --- Ownership Gate (production only) ---
-        // Skipped when dry-run=true so local/debug environments remain frictionless.
-        if (!dryRun && oauth2User != null) {
+        // Skipped when isDebug=true so local/debug environments remain frictionless.
+        if (!isDebug && oauth2User != null) {
             String[] parts = dto.getFullName() == null ? new String[0] : dto.getFullName().split("/", 2);
             if (parts.length < 2 || parts[0].isBlank()) {
                 return ResponseEntity.badRequest().build();
@@ -79,7 +79,7 @@ public class SettingsApiController {
     public ResponseEntity<RepoSettingsDto> approveHarness(
             @RequestBody RepoSettingsDto dto,
             @AuthenticationPrincipal OAuth2User oauth2User) {
-        if (!dryRun && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
+        if (!isDebug && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         RepoSettingsDto result = dashboardAppService.approveInferredHarness(dto.getFullName());
@@ -90,7 +90,7 @@ public class SettingsApiController {
     public ResponseEntity<RepoSettingsDto> inferHarness(
             @RequestBody RepoSettingsDto dto,
             @AuthenticationPrincipal OAuth2User oauth2User) {
-        if (!dryRun && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
+        if (!isDebug && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         RepoSettingsDto result = dashboardAppService.reInferHarness(dto.getFullName());

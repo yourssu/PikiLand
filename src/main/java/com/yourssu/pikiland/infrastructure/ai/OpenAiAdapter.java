@@ -150,7 +150,7 @@ public class OpenAiAdapter implements AiAgentPort {
                 throw new RuntimeException(
                         "[AI] Agentic loop exceeded dynamic cap of " + maxIterations +
                         " iterations (repo has ~" + workspacePort.countSourceFiles(workspace) + " source files)." +
-                        " Increase DRY_RUN or review repo size thresholds."
+                        " Review repo size thresholds."
                 );
             }
 

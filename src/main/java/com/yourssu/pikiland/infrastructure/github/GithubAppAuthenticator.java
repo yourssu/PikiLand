@@ -299,6 +299,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                         "      ai_model:\n" +
                         "        description: 'AI model name'\n" +
                         "        required: false\n" +
+                        "      ai_base_url:\n" +
+                        "        description: 'Custom AI API Base URL'\n" +
+                        "        required: false\n" +
                         "      harness_cmd:\n" +
                         "        description: 'Command to run harness verification (e.g. ./gradlew test)'\n" +
                         "        required: false\n" +
@@ -328,6 +331,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                         "            -e GITHUB_REPOSITORY=\"${{ github.repository }}\" \\\n" +
                         "            -e SLACK_WEBHOOK_URL=\"${{ github.event.inputs.slack_webhook_url }}\" \\\n" +
                         "            -e AI_MODEL=\"${{ github.event.inputs.ai_model }}\" \\\n" +
+                        "            -e PIKILAND_AI_BASE_URL=\"${{ github.event.inputs.ai_base_url }}\" \\\n" +
+                        "            -e OPENAI_BASE_URL=\"${{ github.event.inputs.ai_base_url }}\" \\\n" +
+                        "            -e ANTHROPIC_BASE_URL=\"${{ github.event.inputs.ai_base_url }}\" \\\n" +
                         "            -e OPENAI_API_KEY=\"${{ secrets.OPENAI_API_KEY }}\" \\\n" +
                         "            -e ANTHROPIC_API_KEY=\"${{ secrets.ANTHROPIC_API_KEY }}\" \\\n" +
                         "            ghcr.io/yourssu/pikiland:latest\n";

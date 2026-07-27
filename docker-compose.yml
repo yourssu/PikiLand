@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pikiland-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pikilanddb
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-pikiland123!}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d pikilanddb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pikiland-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pikiland-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - PIKILAND_ADMIN_USERS=${PIKILAND_ADMIN_USERS:-}
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/pikilanddb
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-pikiland123!}
+      - DEBUG=${DEBUG:-false}
+
+volumes:
+  postgres_data:

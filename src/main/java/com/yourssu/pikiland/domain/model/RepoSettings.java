@@ -5,6 +5,7 @@ public class RepoSettings {
     private boolean active;
     private String slackWebhookUrl;
     private String customModel;
+    private String customBaseUrl;
     private String harnessCmd;
     private String inferredHarnessCmd;
     private HarnessStatus harnessStatus;
@@ -12,13 +13,13 @@ public class RepoSettings {
     private int ralphMaxRetries;
 
     public RepoSettings(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel, String harnessCmd) {
-        this(repositoryFullName, active, slackWebhookUrl, customModel, harnessCmd, null,
+        this(repositoryFullName, active, slackWebhookUrl, customModel, "", harnessCmd, null,
                 (harnessCmd != null && !harnessCmd.isBlank()) ? HarnessStatus.ACTIVE : HarnessStatus.NONE,
                 (harnessCmd != null && !harnessCmd.isBlank()) ? HarnessSource.USER_PROVIDED : HarnessSource.NONE,
                 3);
     }
 
-    public RepoSettings(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel,
+    public RepoSettings(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel, String customBaseUrl,
                         String harnessCmd, String inferredHarnessCmd, HarnessStatus harnessStatus, HarnessSource harnessSource, int ralphMaxRetries) {
         if (repositoryFullName == null || repositoryFullName.isBlank()) {
             throw new IllegalArgumentException("Repository full name cannot be null or empty");
@@ -27,6 +28,7 @@ public class RepoSettings {
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
         this.customModel = customModel;
+        this.customBaseUrl = customBaseUrl;
         this.harnessCmd = harnessCmd;
         this.inferredHarnessCmd = inferredHarnessCmd;
         this.harnessStatus = harnessStatus != null ? harnessStatus : HarnessStatus.NONE;
@@ -43,6 +45,10 @@ public class RepoSettings {
 
     public void configureCustomModel(String model) {
         this.customModel = model;
+    }
+
+    public void configureCustomBaseUrl(String baseUrl) {
+        this.customBaseUrl = baseUrl;
     }
 
     public void configureHarnessCmd(String harnessCmd) {
@@ -86,6 +92,10 @@ public class RepoSettings {
 
     public String getCustomModel() {
         return customModel;
+    }
+
+    public String getCustomBaseUrl() {
+        return customBaseUrl;
     }
 
     public String getHarnessCmd() {

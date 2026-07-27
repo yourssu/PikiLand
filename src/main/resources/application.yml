@@ -9,11 +9,11 @@ server:
   port: 8080
 
 app:
+  debug: ${PIKILAND_DEBUG:${DEBUG:false}}
   ai:
     base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
     api-key: ${OPENAI_API_KEY:}
     model: ${AI_MODEL:gpt-4o}
-    dry-run: ${DRY_RUN:false}
   anthropic:
     base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com/v1}
     api-key: ${ANTHROPIC_API_KEY:}

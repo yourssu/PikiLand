@@ -14,11 +14,11 @@ public class AdminSecurityChecker {
     @Value("${app.admin.users:}")
     private String adminUsersConfig;
 
-    @Value("${app.ai.dry-run:false}")
-    private boolean dryRun;
+    @Value("${app.debug:false}")
+    private boolean isDebug;
 
     public boolean isAdmin(OAuth2User oauth2User) {
-        if (dryRun) {
+        if (isDebug) {
             return true;
         }
         if (oauth2User == null) {

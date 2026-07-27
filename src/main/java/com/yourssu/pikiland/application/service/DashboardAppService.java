@@ -96,6 +96,7 @@ public class DashboardAppService {
                                         s.isActive(),
                                         s.getSlackWebhookUrl(),
                                         s.getCustomModel(),
+                                        s.getCustomBaseUrl(),
                                         s.getHarnessCmd(),
                                         s.getInferredHarnessCmd(),
                                         s.getHarnessStatus().name(),
@@ -103,7 +104,7 @@ public class DashboardAppService {
                                         s.getRalphMaxRetries()
                                 ));
                             } else {
-                                repos.add(new RepoSettingsDto(fullName, false, "", "", "", "", "NONE", "NONE", 3));
+                                repos.add(new RepoSettingsDto(fullName, false, "", "", "", "", "", "NONE", "NONE", 3));
                             }
                         }
                     }
@@ -141,6 +142,7 @@ public class DashboardAppService {
             settings.toggleActive(dto.isActive());
             settings.configureSlack(dto.getSlackWebhookUrl());
             settings.configureCustomModel(dto.getCustomModel());
+            settings.configureCustomBaseUrl(dto.getCustomBaseUrl());
             if (dto.getHarnessCmd() != null && !dto.getHarnessCmd().isBlank()) {
                 settings.configureHarnessCmd(dto.getHarnessCmd());
             }
@@ -155,6 +157,7 @@ public class DashboardAppService {
                     dto.isActive(),
                     dto.getSlackWebhookUrl(),
                     dto.getCustomModel(),
+                    dto.getCustomBaseUrl(),
                     dto.getHarnessCmd(),
                     dto.getInferredHarnessCmd(),
                     status,
@@ -175,6 +178,7 @@ public class DashboardAppService {
                 settings.isActive(),
                 settings.getSlackWebhookUrl(),
                 settings.getCustomModel(),
+                settings.getCustomBaseUrl(),
                 settings.getHarnessCmd(),
                 settings.getInferredHarnessCmd(),
                 settings.getHarnessStatus().name(),
@@ -194,6 +198,7 @@ public class DashboardAppService {
                 settings.isActive(),
                 settings.getSlackWebhookUrl(),
                 settings.getCustomModel(),
+                settings.getCustomBaseUrl(),
                 settings.getHarnessCmd(),
                 settings.getInferredHarnessCmd(),
                 settings.getHarnessStatus().name(),

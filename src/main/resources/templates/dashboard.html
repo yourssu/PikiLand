@@ -105,10 +105,14 @@
                             <input type="text" th:id="|slack-${repo.fullName}|" th:value="${repo.slackWebhookUrl}" placeholder="https://hooks.slack.com/services/..." />
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
                             <div class="form-group">
                                 <label th:for="|model-${repo.fullName}|">Custom AI Model (Optional)</label>
                                 <input type="text" th:id="|model-${repo.fullName}|" th:value="${repo.customModel}" placeholder="gpt-4o" />
+                            </div>
+                            <div class="form-group">
+                                <label th:for="|baseUrl-${repo.fullName}|">Custom Base URL (Optional)</label>
+                                <input type="text" th:id="|baseUrl-${repo.fullName}|" th:value="${repo.customBaseUrl}" placeholder="https://api.openai.com/v1" />
                             </div>
                             <div class="form-group">
                                 <label th:for="|ralph-${repo.fullName}|">Ralph Max Retries</label>

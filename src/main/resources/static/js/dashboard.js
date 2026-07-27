@@ -2,6 +2,8 @@ function saveSettings(repoFullName) {
     const active = document.getElementById('toggle-' + repoFullName).checked;
     const slackUrl = document.getElementById('slack-' + repoFullName).value;
     const customModel = document.getElementById('model-' + repoFullName).value;
+    const baseUrlInput = document.getElementById('baseUrl-' + repoFullName);
+    const customBaseUrl = baseUrlInput ? baseUrlInput.value : '';
     const harnessCmd = document.getElementById('harness-' + repoFullName).value;
     const ralphInput = document.getElementById('ralph-' + repoFullName);
     const ralphMaxRetries = ralphInput ? parseInt(ralphInput.value, 10) || 3 : 3;
@@ -11,6 +13,7 @@ function saveSettings(repoFullName) {
         active: active,
         slackWebhookUrl: slackUrl,
         customModel: customModel,
+        customBaseUrl: customBaseUrl,
         harnessCmd: harnessCmd,
         ralphMaxRetries: ralphMaxRetries
     };

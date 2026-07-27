@@ -17,6 +17,7 @@ public class RepoSettingsJpaEntity {
     private boolean active;
     private String slackWebhookUrl;
     private String customModel;
+    private String customBaseUrl;
     private String harnessCmd;
     private String inferredHarnessCmd;
 
@@ -30,12 +31,13 @@ public class RepoSettingsJpaEntity {
 
     public RepoSettingsJpaEntity() {}
 
-    public RepoSettingsJpaEntity(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel,
+    public RepoSettingsJpaEntity(String repositoryFullName, boolean active, String slackWebhookUrl, String customModel, String customBaseUrl,
                                 String harnessCmd, String inferredHarnessCmd, HarnessStatus harnessStatus, HarnessSource harnessSource, int ralphMaxRetries) {
         this.repositoryFullName = repositoryFullName;
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
         this.customModel = customModel;
+        this.customBaseUrl = customBaseUrl;
         this.harnessCmd = harnessCmd;
         this.inferredHarnessCmd = inferredHarnessCmd;
         this.harnessStatus = harnessStatus;
@@ -73,6 +75,14 @@ public class RepoSettingsJpaEntity {
 
     public void setCustomModel(String customModel) {
         this.customModel = customModel;
+    }
+
+    public String getCustomBaseUrl() {
+        return customBaseUrl;
+    }
+
+    public void setCustomBaseUrl(String customBaseUrl) {
+        this.customBaseUrl = customBaseUrl;
     }
 
     public String getHarnessCmd() {
