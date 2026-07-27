@@ -92,6 +92,13 @@ public class WebhookAppService {
                 String conclusion = runNode.path("conclusion").asText();
                 String runId = runNode.path("id").asText();
                 String headBranch = runNode.path("head_branch").asText(defaultBranch);
+                String workflowPath = runNode.path("path").asText("");
+                String workflowName = runNode.path("name").asText("");
+
+                if (isPikilandSelfWorkflow(workflowPath, workflowName)) {
+                    System.out.println("Skipping workflow_run event for PikiLand self-healing workflow to prevent infinite loop. Run ID: " + runId + ", Name: " + workflowName + ", Path: " + workflowPath);
+                    return;
+                }
 
                 if ("completed".equals(action) && "failure".equals(conclusion)) {
                     System.out.println("Webhook: Workflow Run Failed event detected for Run ID: " + runId + ", head branch: " + headBranch);
@@ -111,5 +118,15 @@ public class WebhookAppService {
         } catch (Exception e) {
             System.err.println("Failed to parse webhook payload: " + e.getMessage());
         }
+    }
+
+    private boolean isPikilandSelfWorkflow(String workflowPath, String workflowName) {
+        if (workflowPath != null && (workflowPath.endsWith("pikiland.yml") || workflowPath.endsWith("pikiland.yaml"))) {
+            return true;
+        }
+        if (workflowName != null && workflowName.toLowerCase().contains("pikiland")) {
+            return true;
+        }
+        return false;
     }
 }
