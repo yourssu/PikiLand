@@ -353,16 +353,54 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 } else {
                     throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo + " after " + maxRetries + " attempts", e);
                 }
+            } catch (org.springframework.web.client.HttpClientErrorException.UnprocessableEntity e) {
+                String respBody = e.getResponseBodyAsString();
+                System.err.println("[GitHub Dispatch] 422 Unprocessable Entity for repo " + repo + ": " + respBody);
+                if (respBody != null && respBody.contains("Unexpected inputs provided:") && inputs != null && !inputs.isEmpty()) {
+                    System.out.println("[GitHub Dispatch Fallback] Stripping unsupported inputs and retrying workflow dispatch for repo " + repo + "...");
+                    Map<String, Object> sanitizedInputs = sanitizeInputsFromResponseBody(inputs, respBody);
+                    if (sanitizedInputs.size() < inputs.size()) {
+                        inputs = sanitizedInputs;
+                        continue;
+                    }
+                }
+                throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo + " (422 Unprocessable Entity)", e);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo, e);
             }
         }
     }
 
+    private Map<String, Object> sanitizeInputsFromResponseBody(Map<String, Object> originalInputs, String responseBody) {
+        Map<String, Object> copy = new HashMap<>(originalInputs);
+        try {
+            int idx = responseBody.indexOf("Unexpected inputs provided:");
+            if (idx != -1) {
+                int startBracket = responseBody.indexOf("[", idx);
+                int endBracket = responseBody.indexOf("]", startBracket);
+                if (startBracket != -1 && endBracket != -1) {
+                    String rawKeysStr = responseBody.substring(startBracket + 1, endBracket);
+                    String[] keys = rawKeysStr.split(",");
+                    for (String key : keys) {
+                        String cleanKey = key.replaceAll("[^a-zA-Z0-9_-]", "").trim();
+                        if (!cleanKey.isEmpty()) {
+                            System.out.println("[GitHub Dispatch Fallback] Removing unsupported input key: '" + cleanKey + "'");
+                            copy.remove(cleanKey);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[GitHub Dispatch Fallback] Failed to parse 422 response body: " + e.getMessage());
+        }
+        return copy;
+    }
+
     @Override
     public void installWorkflowIfMissing(String repo, String token, String defaultBranch) {
         String path = ".github/workflows/pikiland.yml";
         String checkUrl = "https://api.github.com/repos/" + repo + "/contents/" + path + "?ref=" + defaultBranch;
+        String yaml = buildWorkflowYaml();
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -372,104 +410,129 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             try {
                 ResponseEntity<Map> response = restTemplate.exchange(checkUrl, HttpMethod.GET, entity, Map.class);
-                if (response.getStatusCode() == HttpStatus.OK) {
-                    System.out.println("[GitHub] pikiland.yml already exists in " + repo);
+                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                    Map body = response.getBody();
+                    String sha = (String) body.get("sha");
+                    String content = (String) body.get("content");
+                    String decodedContent = content != null ? new String(Base64.getMimeDecoder().decode(content.replaceAll("\\s+", ""))) : "";
+
+                    if (decodedContent.contains("ralph_max_retries:") && decodedContent.contains("pikiland-engine")) {
+                        System.out.println("[GitHub] pikiland.yml already up-to-date in " + repo);
+                        return;
+                    }
+
+                    System.out.println("[GitHub] Outdated pikiland.yml detected in " + repo + ". Updating to latest workflow template...");
+                    updateWorkflowFile(repo, path, sha, yaml, token, defaultBranch);
                     return;
                 }
             } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
-                // File missing, install it
                 System.out.println("[GitHub] pikiland.yml not found in " + repo + ". Installing...");
-                String installUrl = "https://api.github.com/repos/" + repo + "/contents/" + path;
-
-                String yaml = "name: PikiLand Self-Healing\n" +
-                        "\n" +
-                        "on:\n" +
-                        "  workflow_dispatch:\n" +
-                        "    inputs:\n" +
-                        "      event_type:\n" +
-                        "        description: 'Original event type'\n" +
-                        "        required: true\n" +
-                        "      log_content:\n" +
-                        "        description: 'Truncated error log or issue body (Optional - CLI downloads via run_id if omitted)'\n" +
-                        "        required: false\n" +
-                        "      run_id:\n" +
-                        "        description: 'Original run ID or issue number'\n" +
-                        "        required: true\n" +
-                        "      target_branch:\n" +
-                        "        description: 'Branch to checkout and patch'\n" +
-                        "        required: true\n" +
-                        "      slack_webhook_url:\n" +
-                        "        description: 'Slack Webhook URL'\n" +
-                        "        required: false\n" +
-                        "      ai_model:\n" +
-                        "        description: 'AI model name'\n" +
-                        "        required: false\n" +
-                        "      ai_base_url:\n" +
-                        "        description: 'Custom AI API Base URL'\n" +
-                        "        required: false\n" +
-                        "      harness_cmd:\n" +
-                        "        description: 'Command to run harness verification (e.g. ./gradlew test)'\n" +
-                        "        required: false\n" +
-                        "      ralph_max_retries:\n" +
-                        "        description: 'Ralph Loop max retries cap'\n" +
-                        "        required: false\n" +
-                        "\n" +
-                        "jobs:\n" +
-                        "  pikiland-patch:\n" +
-                        "    runs-on: ubuntu-latest\n" +
-                        "    steps:\n" +
-                        "      - name: Checkout Code\n" +
-                        "        uses: actions/checkout@v4\n" +
-                        "        with:\n" +
-                        "          ref: ${{ github.event.inputs.target_branch }}\n" +
-                        "          fetch-depth: 0\n" +
-                        "\n" +
-                        "      - name: Set up Java 21\n" +
-                        "        uses: actions/setup-java@v4\n" +
-                        "        with:\n" +
-                        "          java-version: '21'\n" +
-                        "          distribution: 'temurin'\n" +
-                        "\n" +
-                        "      - name: Run PikiLand CLI (Native Execution)\n" +
-                        "        env:\n" +
-                        "          PIKILAND_CLI: \"true\"\n" +
-                        "          PIKILAND_EVENT_TYPE: \"${{ github.event.inputs.event_type }}\"\n" +
-                        "          PIKILAND_LOG_CONTENT: \"${{ github.event.inputs.log_content }}\"\n" +
-                        "          PIKILAND_RUN_ID: \"${{ github.event.inputs.run_id }}\"\n" +
-                        "          PIKILAND_TARGET_BRANCH: \"${{ github.event.inputs.target_branch }}\"\n" +
-                        "          PIKILAND_WORKSPACE_PATH: \".\"\n" +
-                        "          PIKILAND_HARNESS_CMD: \"${{ github.event.inputs.harness_cmd }}\"\n" +
-                        "          PIKILAND_RALPH_MAX_RETRIES: \"${{ github.event.inputs.ralph_max_retries }}\"\n" +
-                        "          GITHUB_TOKEN: \"${{ secrets.GITHUB_TOKEN }}\"\n" +
-                        "          GITHUB_REPOSITORY: \"${{ github.repository }}\"\n" +
-                        "          SLACK_WEBHOOK_URL: \"${{ github.event.inputs.slack_webhook_url }}\"\n" +
-                        "          AI_MODEL: \"${{ github.event.inputs.ai_model }}\"\n" +
-                        "          PIKILAND_AI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
-                        "          OPENAI_API_KEY: \"${{ secrets.OPENAI_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
-                        "          ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
-                        "        run: |\n" +
-                        "          chmod +x gradlew\n" +
-                        "          ./gradlew bootRun --args=\"--cli\"\n";
-
-                String base64Content = Base64.getEncoder().encodeToString(yaml.getBytes(StandardCharsets.UTF_8));
-
-                Map<String, Object> body = new HashMap<>();
-                body.put("message", "ci: install PikiLand self-healing workflow");
-                body.put("content", base64Content);
-                body.put("branch", defaultBranch);
-
-                HttpHeaders putHeaders = new HttpHeaders();
-                putHeaders.set("Authorization", "Bearer " + token);
-                putHeaders.set("Accept", "application/vnd.github+json");
-                putHeaders.setContentType(MediaType.APPLICATION_JSON);
-
-                HttpEntity<Map<String, Object>> putEntity = new HttpEntity<>(body, putHeaders);
-                restTemplate.exchange(installUrl, HttpMethod.PUT, putEntity, Map.class);
-                System.out.println("[GitHub] Successfully installed pikiland.yml in " + repo + " on branch " + defaultBranch);
+                updateWorkflowFile(repo, path, null, yaml, token, defaultBranch);
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to check/install workflow file in " + repo, e);
         }
+    }
+
+    private void updateWorkflowFile(String repo, String path, String sha, String yamlContent, String token, String branch) {
+        String installUrl = "https://api.github.com/repos/" + repo + "/contents/" + path;
+        String base64Content = Base64.getEncoder().encodeToString(yamlContent.getBytes(StandardCharsets.UTF_8));
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", sha == null ? "ci: install PikiLand self-healing workflow" : "ci: update PikiLand self-healing workflow");
+        body.put("content", base64Content);
+        body.put("branch", branch);
+        if (sha != null) {
+            body.put("sha", sha);
+        }
+
+        HttpHeaders putHeaders = new HttpHeaders();
+        putHeaders.set("Authorization", "Bearer " + token);
+        putHeaders.set("Accept", "application/vnd.github+json");
+        putHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> putEntity = new HttpEntity<>(body, putHeaders);
+        restTemplate.exchange(installUrl, HttpMethod.PUT, putEntity, Map.class);
+        System.out.println("[GitHub] Successfully " + (sha == null ? "installed" : "updated") + " pikiland.yml in " + repo + " on branch " + branch);
+    }
+
+    private String buildWorkflowYaml() {
+        return "name: PikiLand Self-Healing\n" +
+                "\n" +
+                "on:\n" +
+                "  workflow_dispatch:\n" +
+                "    inputs:\n" +
+                "      event_type:\n" +
+                "        description: 'Original event type'\n" +
+                "        required: true\n" +
+                "      log_content:\n" +
+                "        description: 'Truncated error log or issue body (Optional - CLI downloads via run_id if omitted)'\n" +
+                "        required: false\n" +
+                "      run_id:\n" +
+                "        description: 'Original run ID or issue number'\n" +
+                "        required: true\n" +
+                "      target_branch:\n" +
+                "        description: 'Branch to checkout and patch'\n" +
+                "        required: true\n" +
+                "      slack_webhook_url:\n" +
+                "        description: 'Slack Webhook URL'\n" +
+                "        required: false\n" +
+                "      ai_model:\n" +
+                "        description: 'AI model name'\n" +
+                "        required: false\n" +
+                "      ai_base_url:\n" +
+                "        description: 'Custom AI API Base URL'\n" +
+                "        required: false\n" +
+                "      harness_cmd:\n" +
+                "        description: 'Command to run harness verification (e.g. ./gradlew test)'\n" +
+                "        required: false\n" +
+                "      ralph_max_retries:\n" +
+                "        description: 'Ralph Loop max retries cap'\n" +
+                "        required: false\n" +
+                "\n" +
+                "jobs:\n" +
+                "  pikiland-patch:\n" +
+                "    runs-on: ubuntu-latest\n" +
+                "    steps:\n" +
+                "      - name: Checkout Target Repository\n" +
+                "        uses: actions/checkout@v4\n" +
+                "        with:\n" +
+                "          ref: ${{ github.event.inputs.target_branch }}\n" +
+                "          fetch-depth: 0\n" +
+                "\n" +
+                "      - name: Checkout PikiLand Engine\n" +
+                "        uses: actions/checkout@v4\n" +
+                "        with:\n" +
+                "          repository: 'yourssu/PikiLand'\n" +
+                "          path: 'pikiland-engine'\n" +
+                "\n" +
+                "      - name: Set up Java 21\n" +
+                "        uses: actions/setup-java@v4\n" +
+                "        with:\n" +
+                "          java-version: '21'\n" +
+                "          distribution: 'temurin'\n" +
+                "\n" +
+                "      - name: Run PikiLand CLI (Native Execution)\n" +
+                "        env:\n" +
+                "          PIKILAND_CLI: \"true\"\n" +
+                "          PIKILAND_EVENT_TYPE: \"${{ github.event.inputs.event_type }}\"\n" +
+                "          PIKILAND_LOG_CONTENT: \"${{ github.event.inputs.log_content }}\"\n" +
+                "          PIKILAND_RUN_ID: \"${{ github.event.inputs.run_id }}\"\n" +
+                "          PIKILAND_TARGET_BRANCH: \"${{ github.event.inputs.target_branch }}\"\n" +
+                "          PIKILAND_WORKSPACE_PATH: \"${{ github.workspace }}\"\n" +
+                "          PIKILAND_HARNESS_CMD: \"${{ github.event.inputs.harness_cmd }}\"\n" +
+                "          PIKILAND_RALPH_MAX_RETRIES: \"${{ github.event.inputs.ralph_max_retries }}\"\n" +
+                "          GITHUB_TOKEN: \"${{ secrets.GITHUB_TOKEN }}\"\n" +
+                "          GITHUB_REPOSITORY: \"${{ github.repository }}\"\n" +
+                "          SLACK_WEBHOOK_URL: \"${{ github.event.inputs.slack_webhook_url }}\"\n" +
+                "          AI_MODEL: \"${{ github.event.inputs.ai_model }}\"\n" +
+                "          PIKILAND_AI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
+                "          OPENAI_API_KEY: \"${{ secrets.OPENAI_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
+                "          ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
+                "        run: |\n" +
+                "          cd pikiland-engine\n" +
+                "          chmod +x gradlew\n" +
+                "          ./gradlew bootRun --args=\"--cli\"\n";
     }
 
     @Override
