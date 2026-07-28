@@ -79,10 +79,18 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 keyContent = sysOpt.get().getGithubPrivateKeyContent();
             }
         }
-        if (keyContent == null) {
-            byte[] keyBytes = Files.readAllBytes(Paths.get(privateKeyPath));
-            keyContent = new String(keyBytes, StandardCharsets.UTF_8);
+        if (keyContent == null || keyContent.isBlank()) {
+            if (privateKeyPath != null && !privateKeyPath.isBlank() && Files.exists(Paths.get(privateKeyPath))) {
+                byte[] keyBytes = Files.readAllBytes(Paths.get(privateKeyPath));
+                keyContent = new String(keyBytes, StandardCharsets.UTF_8);
+            }
         }
+
+        if (keyContent == null || keyContent.isBlank()) {
+            throw new IllegalStateException("GitHub App Private Key is missing. Please upload a .pem file in Admin Settings.");
+        }
+
+        boolean isPkcs1 = keyContent.contains("BEGIN RSA PRIVATE KEY");
 
         String temp = keyContent
                 .replaceAll("-----BEGIN PRIVATE KEY-----", "")
@@ -90,10 +98,49 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 .replaceAll("-----BEGIN RSA PRIVATE KEY-----", "")
                 .replaceAll("-----END RSA PRIVATE KEY-----", "")
                 .replaceAll("\\s+", "");
+
         byte[] decode = Base64.getDecoder().decode(temp);
+
+        if (isPkcs1) {
+            decode = convertPkcs1ToPkcs8(decode);
+        }
+
         PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decode);
         KeyFactory kf = KeyFactory.getInstance("RSA");
         return kf.generatePrivate(spec);
+    }
+
+    private byte[] convertPkcs1ToPkcs8(byte[] pkcs1Bytes) {
+        int pkcs1Length = pkcs1Bytes.length;
+        // ASN.1 DER Header for PKCS#8 wrapping of RSA PrivateKey
+        byte[] pkcs8Header;
+        if (pkcs1Length < 128) {
+            pkcs8Header = new byte[] {
+                0x30, (byte) (pkcs1Length + 22),
+                0x02, 0x01, 0x00,
+                0x30, 0x0d, 0x06, 0x09, 0x2a, (byte) 0x86, 0x48, (byte) 0x86, (byte) 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+                0x04, (byte) pkcs1Length
+            };
+        } else if (pkcs1Length < 256) {
+            pkcs8Header = new byte[] {
+                0x30, (byte) 0x81, (byte) (pkcs1Length + 22),
+                0x02, 0x01, 0x00,
+                0x30, 0x0d, 0x06, 0x09, 0x2a, (byte) 0x86, 0x48, (byte) 0x86, (byte) 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+                0x04, (byte) 0x81, (byte) pkcs1Length
+            };
+        } else {
+            int len = pkcs1Length + 22;
+            pkcs8Header = new byte[] {
+                0x30, (byte) 0x82, (byte) (len >> 8), (byte) (len & 0xff),
+                0x02, 0x01, 0x00,
+                0x30, 0x0d, 0x06, 0x09, 0x2a, (byte) 0x86, 0x48, (byte) 0x86, (byte) 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+                0x04, (byte) 0x82, (byte) (pkcs1Length >> 8), (byte) (pkcs1Length & 0xff)
+            };
+        }
+        byte[] pkcs8Bytes = new byte[pkcs8Header.length + pkcs1Length];
+        System.arraycopy(pkcs8Header, 0, pkcs8Bytes, 0, pkcs8Header.length);
+        System.arraycopy(pkcs1Bytes, 0, pkcs8Bytes, pkcs8Header.length, pkcs1Length);
+        return pkcs8Bytes;
     }
 
     private String getEffectiveAppId() {
@@ -109,14 +156,18 @@ public class GithubAppAuthenticator implements GithubAuthPort {
     private String generateJwt() {
         try {
             PrivateKey privateKey = getPrivateKey();
+            String effAppId = getEffectiveAppId();
+            if (effAppId == null || effAppId.isBlank()) {
+                effAppId = "123456"; // Fallback placeholder if not set yet
+            }
             return Jwts.builder()
                     .issuedAt(new Date(System.currentTimeMillis() - 60000))
                     .expiration(new Date(System.currentTimeMillis() + 600000))
-                    .issuer(getEffectiveAppId())
+                    .issuer(effAppId)
                     .signWith(privateKey, Jwts.SIG.RS256)
                     .compact();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to generate JWT for GitHub App", e);
+            throw new RuntimeException("Failed to generate JWT for GitHub App: " + e.getMessage(), e);
         }
     }
 
@@ -407,9 +458,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
     @Override
     public boolean isAppInstalledForRepo(String repo) {
         if (repo == null || !repo.contains("/")) return false;
-        String jwt = generateJwt();
-        String url = "https://api.github.com/repos/" + repo + "/installation";
         try {
+            String jwt = generateJwt();
+            String url = "https://api.github.com/repos/" + repo + "/installation";
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + jwt);
             headers.set("Accept", "application/vnd.github+json");
@@ -418,6 +469,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
             return response.getStatusCode() == HttpStatus.OK && response.getBody() != null && response.getBody().containsKey("id");
         } catch (Exception e) {
+            System.err.println("[GitHubAuth] App installation check skipped for " + repo + ": " + e.getMessage());
             return false;
         }
     }

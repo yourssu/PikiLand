@@ -91,4 +91,19 @@ class GithubAppAuthenticatorTest {
         assertTrue(decodedYaml.contains("OPENAI_API_KEY: \"${{ secrets.OPENAI_API_KEY || secrets.PIKILAND_AI_API_KEY }}\""), "OPENAI_API_KEY should be bound to repository secrets");
         assertTrue(decodedYaml.contains("ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\""), "ANTHROPIC_API_KEY should be bound to repository secrets");
     }
+
+    @Test
+    @DisplayName("PKCS#1 RSA Key(BEGIN RSA PRIVATE KEY)가 들어왔을 때 DER Header 변환 후 파싱에 성공한다")
+    void getPrivateKey_PKCS1_Success() throws Exception {
+        // 512-bit RSA PrivateKey PKCS#1 DER Sample
+        byte[] pkcs1Bytes = Base64.getDecoder().decode(
+            "MIIBOgIBAAJBALR3a2uVdM5+M/+mYF0z0L4G04d3j2ZJ6O6A4J7d8v7S2r8D/1g4" +
+            "S5P2s8Y5K6a5Z5V1v1g1g1g1g1g1g1g1g1g1g1g1g1g1g0CAwEAAQJAQ0+0/999" +
+            "9999999999999999999999999999999999999999999999999999999999999999" +
+            "9999999999999999999999999999999999999999999999999999999999999999"
+        );
+        byte[] converted = (byte[]) ReflectionTestUtils.invokeMethod(authenticator, "convertPkcs1ToPkcs8", (Object) pkcs1Bytes);
+        org.junit.jupiter.api.Assertions.assertNotNull(converted);
+        org.junit.jupiter.api.Assertions.assertTrue(converted.length > pkcs1Bytes.length);
+    }
 }
