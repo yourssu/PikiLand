@@ -17,59 +17,51 @@
             <div class="user-control">
                 <span class="username" th:text="${username}">username</span>
                 <span class="badge badge-active" th:if="${isAdmin}" style="margin-right: 8px;">ADMIN</span>
+                <a th:if="${isAdmin}" href="/admin" class="btn btn-secondary" style="margin-right: 8px; font-size: 0.85rem; border-color: #f59e0b; color: #fbbf24; text-decoration: none;">⚙️ Admin Settings</a>
                 <a href="/logout" class="btn btn-secondary btn-logout">Logout</a>
             </div>
         </header>
 
         <main class="dashboard-main">
-            <!-- GitHub Action Secrets Guide Card (All Users) -->
-            <div class="glass-card guide-card" style="margin-bottom: 24px; border-left: 4px solid #6366f1; background: rgba(99, 102, 241, 0.08);">
-                <h3 style="margin-top: 0; color: #818cf8;">🔑 Required GitHub Actions Secrets Guide</h3>
-                <p style="margin: 6px 0; color: #cbd5e1; font-size: 0.95rem;">
-                    To enable PikiLand's autonomous AI repair in your target repository's GitHub Actions, configure the following secrets under 
-                    <strong>Repository Settings → Secrets and variables → Actions</strong>:
+            <!-- Target Repository Setup Guide Card (All Users) -->
+            <div class="glass-card guide-card" style="margin-bottom: 24px; border-left: 4px solid #6366f1; background: rgba(99, 102, 241, 0.08); padding: 20px; border-radius: 12px;">
+                <h3 style="margin-top: 0; color: #818cf8; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    ⚙️ Target Repository Required Setup Guide (대상 저장소 필수 설정 가이드)
+                </h3>
+                <p style="margin: 6px 0 14px 0; color: #cbd5e1; font-size: 0.92rem; line-height: 1.5;">
+                    PikiLand가 대상 리포지토리에서 버그를 자동으로 수정하고 PR을 생성하려면 아래 2가지 설정을 리포지토리에서 완료해주셔야 합니다.
                 </p>
-                <div style="display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap;">
-                    <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; font-family: monospace;">
-                        <strong style="color: #38bdf8;">OPENAI_API_KEY</strong>: OpenAI API key (for GPT models)
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;">
+                    <!-- 1. API Keys Guide -->
+                    <div style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                        <strong style="color: #38bdf8; font-size: 0.95rem; display: block; margin-bottom: 6px;">🔑 1. AI API Keys (Secrets) 설정</strong>
+                        <p style="margin: 0 0 8px 0; color: #94a3b8; font-size: 0.85rem; line-height: 1.4;">
+                            <strong>Repository Settings → Secrets and variables → Actions</strong> 경로에서 사용할 AI 키를 등록하세요:
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div style="background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 6px; font-family: monospace; font-size: 0.83rem; color: #e2e8f0;">
+                                <strong style="color: #38bdf8;">OPENAI_API_KEY</strong>: OpenAI API Key (GPT 모델용)
+                            </div>
+                            <div style="background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 6px; font-family: monospace; font-size: 0.83rem; color: #e2e8f0;">
+                                <strong style="color: #38bdf8;">ANTHROPIC_API_KEY</strong>: Anthropic API Key (Claude 모델용)
+                            </div>
+                        </div>
                     </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; font-family: monospace;">
-                        <strong style="color: #38bdf8;">ANTHROPIC_API_KEY</strong>: Anthropic API key (for Claude models)
-                    </div>
-                </div>
-            </div>
 
-            <!-- Global System Settings Panel (Admin Only) -->
-            <div th:if="${isAdmin}" class="glass-card admin-card" style="margin-bottom: 32px; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <div>
-                        <h2 style="margin: 0; color: #fbbf24;">⚙️ Central System Settings (Admin Only)</h2>
-                        <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #94a3b8;">Manage PikiLand App authentications and OAuth keys across the central server.</p>
-                    </div>
-                    <button type="button" class="btn btn-primary" onclick="saveSystemSettings()">Save System Settings</button>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-                    <div class="form-group">
-                        <label for="sys-githubAppId">GitHub App ID</label>
-                        <input type="text" id="sys-githubAppId" placeholder="123456" />
-                    </div>
-                    <div class="form-group">
-                        <label for="sys-githubWebhookSecret">Webhook Secret</label>
-                        <input type="password" id="sys-githubWebhookSecret" placeholder="••••••••" />
-                    </div>
-                    <div class="form-group">
-                        <label for="sys-githubClientId">OAuth Client ID</label>
-                        <input type="text" id="sys-githubClientId" placeholder="Iv1.xxxxxx" />
-                    </div>
-                    <div class="form-group">
-                        <label for="sys-githubClientSecret">OAuth Client Secret</label>
-                        <input type="password" id="sys-githubClientSecret" placeholder="••••••••" />
-                    </div>
-                    <div class="form-group" style="grid-column: 1 / -1;">
-                        <label for="sys-githubPrivateKeyFile">📂 GitHub App Private Key File (.pem File Upload)</label>
-                        <input type="file" id="sys-githubPrivateKeyFile" accept=".pem,.key" onchange="handlePemFileUpload(event)" style="padding: 8px; border: 1px dashed #6366f1; border-radius: 6px; background: rgba(0,0,0,0.2); cursor: pointer; width: 100%; color: #cbd5e1;" />
-                        <input type="hidden" id="sys-githubPrivateKeyContent" />
-                        <div id="pem-file-status" style="font-size: 0.85rem; color: #10b981; margin-top: 6px; display: none;">✅ Private Key (.pem) file loaded successfully.</div>
+                    <!-- 2. Workflow Permissions Guide -->
+                    <div style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25);">
+                        <strong style="color: #fbbf24; font-size: 0.95rem; display: block; margin-bottom: 6px;">🔒 2. GitHub Actions Write & PR 권한 허용 (필수)</strong>
+                        <p style="margin: 0 0 8px 0; color: #94a3b8; font-size: 0.85rem; line-height: 1.4;">
+                            권한 설정이 꺼져 있으면 PR 푸시 시 <code style="color: #f87171; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">403 Permission Denied</code> 에러가 발생합니다.
+                        </p>
+                        <p style="margin: 0 0 6px 0; color: #cbd5e1; font-size: 0.85rem; line-height: 1.4;">
+                            <strong>Repository Settings → Actions → General → Workflow permissions</strong>:
+                        </p>
+                        <ul style="margin: 0 0 0 18px; padding: 0; color: #e2e8f0; font-size: 0.83rem; line-height: 1.5;">
+                            <li>🔘 <strong>Read and write permissions</strong> 선택</li>
+                            <li>☑️ <strong>Allow GitHub Actions to create and approve pull requests</strong> 체크</li>
+                        </ul>
                     </div>
                 </div>
             </div>

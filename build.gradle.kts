@@ -38,6 +38,7 @@ dependencies {
     // ArchUnit
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     // Mockito Static Agent
