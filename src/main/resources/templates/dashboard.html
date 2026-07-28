@@ -124,7 +124,7 @@
                         <div th:if="${repo.inferredHarnessCmd != null and not repo.inferredHarnessCmd.isBlank()}" class="inferred-box" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
                             <label style="color: #ffc107; font-weight: 600;">💡 Auto-Inferred Test Command (Pending Approval):</label>
                             <div style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; margin: 6px 0;" th:text="${repo.inferredHarnessCmd}">./gradlew test</div>
-                            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 4px 10px;" th:onclick="|approveHarness('${repo.fullName}')|">Approve Inferred Command</button>
+                            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 4px 10px;" th:data-repo="${repo.fullName}" onclick="approveHarness(this.getAttribute('data-repo'))">Approve Inferred Command</button>
                         </div>
 
                         <div class="form-group">
@@ -133,10 +133,10 @@
                         </div>
 
                         <div class="button-group" style="display: flex; gap: 8px;">
-                            <button type="button" class="btn btn-primary btn-save" style="flex: 1;" th:onclick="|saveSettings('${repo.fullName}')|">
+                            <button type="button" class="btn btn-primary btn-save" style="flex: 1;" th:data-repo="${repo.fullName}" onclick="saveSettings(this.getAttribute('data-repo'))">
                                 Save Configuration
                             </button>
-                            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" th:onclick="|inferHarness('${repo.fullName}')|">
+                            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" th:data-repo="${repo.fullName}" onclick="inferHarness(this.getAttribute('data-repo'))">
                                 Re-infer Command
                             </button>
                         </div>
