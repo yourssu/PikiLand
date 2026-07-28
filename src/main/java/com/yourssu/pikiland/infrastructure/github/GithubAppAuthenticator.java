@@ -529,6 +529,8 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "          SLACK_WEBHOOK_URL: \"${{ github.event.inputs.slack_webhook_url }}\"\n" +
                 "          AI_MODEL: \"${{ github.event.inputs.ai_model }}\"\n" +
                 "          PIKILAND_AI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
+                "          OPENAI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
+                "          ANTHROPIC_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
                 "          OPENAI_API_KEY: \"${{ secrets.OPENAI_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
                 "          ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
                 "        run: |\n" +
