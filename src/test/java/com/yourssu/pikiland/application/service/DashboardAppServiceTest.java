@@ -30,7 +30,7 @@ class DashboardAppServiceTest {
     void setUp() {
         repoSettingsRepository = Mockito.mock(RepoSettingsRepository.class);
         systemSettingsRepository = Mockito.mock(SystemSettingsRepository.class);
-        harnessInferenceService = new HarnessInferenceService(repoSettingsRepository);
+        harnessInferenceService = new HarnessInferenceService();
         githubAuthPort = Mockito.mock(GithubAuthPort.class);
 
         dashboardAppService = Mockito.spy(new DashboardAppService(

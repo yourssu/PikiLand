@@ -21,14 +21,6 @@ server:
 
 app:
   debug: ${PIKILAND_DEBUG:${DEBUG:false}}
-  ai:
-    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
-    api-key: ${OPENAI_API_KEY:}
-    model: ${AI_MODEL:gpt-4o}
-  anthropic:
-    base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com/v1}
-    api-key: ${ANTHROPIC_API_KEY:}
-    model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20240620}
   admin:
     users: ${PIKILAND_ADMIN_USERS:}
   github:

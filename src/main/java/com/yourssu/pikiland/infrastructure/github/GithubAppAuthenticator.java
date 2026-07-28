@@ -503,7 +503,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "      - name: Checkout PikiLand Engine\n" +
                 "        uses: actions/checkout@v4\n" +
                 "        with:\n" +
-                "          repository: 'yourssu/PikiLand'\n" +
+                "          repository: 'yourssu/PikiLand-Engine'\n" +
                 "          ref: 'main'\n" +
                 "          path: 'pikiland-engine'\n" +
                 "          token: ${{ secrets.PIKILAND_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}\n" +

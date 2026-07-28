@@ -215,5 +215,5 @@ docker compose logs -f pikiland-server
    - PikiLand 대시보드에서 해당 저장소 선택:
      - **Active**: `ON`
      - **Harness Command**: (예시)`./gradlew test` (프로젝트 빌드/테스트 명령)
-     - **AI Provider Key**: OpenAI API Key 또는 Anthropic Key 설정
+     - **Custom AI Model / Base URL**: (선택) 커스텀 AI 모델명 및 API Base URL 설정
      - **Slack Webhook URL**: (선택) 알림용 Slack Webhook URL

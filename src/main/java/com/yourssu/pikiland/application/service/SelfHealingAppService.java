@@ -1,16 +1,10 @@
 package com.yourssu.pikiland.application.service;
 
-import com.yourssu.pikiland.domain.model.AiAnalysisResult;
-import com.yourssu.pikiland.domain.model.PrCandidate;
 import com.yourssu.pikiland.domain.model.RepoSettings;
 import com.yourssu.pikiland.domain.port.*;
 import com.yourssu.pikiland.domain.service.LogTruncator;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -6,8 +6,8 @@ Welcome to PikiLand! You are an agent interacting with a system designed to auto
 ## 🛠 Project Core Concepts
 
 ### 1. Two Operational Modes
-*   **Web App Mode (Coordinator)**: The Spring Boot application that handles webhooks, manages repository settings, and orchestrates the overall flow. It acts as the "brain."
-*   **CLI Mode (Execution Engine)**: Runs inside GitHub Actions. This is where the heavy lifting happens: analyzing logs, running tests, applying patches, and executing the **Ralph Loop**.
+*   **Web App Mode (Coordinator)**: The Spring Boot application in this repository (`yourssu/PikiLand`) that handles webhooks, manages repository settings, and orchestrates the overall flow. It acts as the "brain."
+*   **CLI Mode (Execution Engine)**: Resides in a separate repository (`yourssu/PikiLand-Engine`) and runs inside GitHub Actions. This is where the heavy lifting happens: analyzing logs, running tests, applying patches, and executing the **Ralph Loop**.
 
 ### 2. The Ralph Loop & Harness
 *   **Harness**: A command (e.g., `./gradlew test`) that must be executable in the target repository to reproduce an error (*Red*) and verify a fix (*Green*).

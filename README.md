@@ -45,21 +45,21 @@ MVP는 신뢰할 수 있는 Harness와 Ralph Loop가 이미 준비된 저장소�
 
 ## 실행 모드 (App Mode vs CLI Mode)
 
-PikiLand는 이벤트 조정(Coordinator)과 실제 복구 작업(Worker)이 분리된 2가지 모드로 동작합니다.
+PikiLand는 이벤트 조정(Coordinator)과 실제 복구 작업(Worker)이 분리된 2가지 모드로 동작하며, 각각 전용 저장소로 물리 분리되어 있습니다.
 
-### 1. Web App 모드 (Coordinator)
-* **목적**: 사용자 제어 및 GitHub 웹훅 이벤트 연동
-* **실행 환경**: 지속 실행되는 **웹 서버** (Spring Boot Web, 포트 `8080`) *<- 포트 변경 필요*
+### 1. Web App 모드 (Coordinator) - 본 저장소 (`yourssu/PikiLand`)
+* **목적**: 사용자 제어, GitHub OAuth 로그인 및 웹훅 이벤트 연동
+* **실행 환경**: 지속 실행되는 **웹 서버** (Spring Boot Web, 포트 `8080`)
 * **동작 흐름**:
   1. GitHub 웹훅 이벤트(`workflow_run` 실패, `issues` 등록)를 수신합니다.
   2. 에러 로그를 다운로드하여 요약 및 정제합니다.
-  3. 대상 저장소에 자가 치유용 워크플로 파일(`.github/workflows/pikiland.yml`)이 없다면 자동으로 커밋/설치합니다.
+  3. 대상 저장소에 자가 치유용 워크플로 파일(`.github/workflows/pikiland.yml`)이 없다면 자동으로 커밋/설치합니다. (해당 템플릿은 `yourssu/PikiLand-Engine`을 체크아웃받도록 설정됨)
   4. 대상 저장소의 GitHub Actions Runner를 깨우기 위해 `workflow_dispatch`를 발생시킵니다.
 
-### 2. CLI 모드 (Execution Engine)
+### 2. CLI 모드 (Execution Engine) - 전용 저장소 (`yourssu/PikiLand-Engine`)
 * **목적**: 격리된 환경에서의 코드 분석, 빌드 테스트 및 패치/PR 생성
 * **실행 환경**: **GitHub Actions Runner** (단발성 Native Java 21 Batch 실행)
-  * Web App에 의해 연동 리포지토리의 GitHub Actions가 트리거되면, Runner 환경 내에서 Native Java 21로 direct 실행됩니다. (`./gradlew bootRun --args="--cli"`)
+  * Web App에 의해 연동 리포지토리의 GitHub Actions가 트리거되면, Runner 환경 내에서 `yourssu/PikiLand-Engine`을 체크아웃하여 가볍게 구동됩니다.
 * **동작 흐름**:
   1. 대상 코드를 체크아웃하고 `AGENTS.md` 또는 `AI.md` 안전장치 파일이 있는지 확인합니다.
   2. 사전 빌드(Harness) 실행으로 버그를 재현하고, AI API를 사용해 패치 후보를 진단합니다.
@@ -78,20 +78,16 @@ cp .env.example .env
 
 실행 후 `http://localhost:8080`에서 GitHub OAuth 로그인과 저장소 설정 화면을 확인할 수 있습니다.
 
-주요 환경 변수:
+주요 환경 변수 (Web Coordinator 서버):
 
 | 변수 | 용도 |
 | --- | --- |
-| `OPENAI_BASE_URL`, `ANTHROPIC_BASE_URL` | OpenAI 및 Anthropic API Gateway Base URL |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | OpenAI 및 Anthropic API 인증 키 |
-| `AI_MODEL` | AI 진단 및 분석 시 사용할 기본 AI 모델 (기본값: `gpt-4o`) |
-| `PIKILAND_HARNESS_CMD` | 테스트 재현 및 검증을 위한 로컬 Harness 실행 명령 |
-| `PIKILAND_RALPH_MAX_RETRIES` | Ralph Loop 최대 재시도 횟수 (기본값: 3) |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | 대시보드 로그인용 GitHub OAuth 인증 |
 | `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH` | GitHub App 인증 |
 | `GITHUB_WEBHOOK_SECRET` | 웹훅 서명 검증 |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | 대시보드 로그인용 GitHub OAuth 인증 (최초 접속 데드락 방지) |
-| `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | 운영 PostgreSQL |
-| `DRY_RUN` | 로컬 테스트 우회 설정. 운영에서는 반드시 `false` |
+| `PIKILAND_ADMIN_USERS` | 중앙 시스템 설정 접근 권한을 가질 어드민 사용자 목록 |
+| `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | 운영 PostgreSQL 데이터베이스 접속 정보 |
+| `PIKILAND_DEBUG` (또는 `DEBUG`) | 디버그 모드 (웹훅 서명 및 권한 검사 우회, 기본값: `false`) |
 
 ### 테스트 하네스 및 Ralph Loop 설정
 

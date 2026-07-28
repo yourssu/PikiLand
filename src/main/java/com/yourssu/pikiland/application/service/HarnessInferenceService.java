@@ -1,22 +1,16 @@
 package com.yourssu.pikiland.application.service;
 
 import com.yourssu.pikiland.domain.model.HarnessSource;
-import com.yourssu.pikiland.domain.model.RepoSettings;
-import com.yourssu.pikiland.domain.port.RepoSettingsRepository;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class HarnessInferenceService {
 
-    private final RepoSettingsRepository repoSettingsRepository;
-
-    public HarnessInferenceService(RepoSettingsRepository repoSettingsRepository) {
-        this.repoSettingsRepository = repoSettingsRepository;
+    public HarnessInferenceService() {
     }
 
     public String inferHarnessCmdFromFilenames(List<String> filenames) {
