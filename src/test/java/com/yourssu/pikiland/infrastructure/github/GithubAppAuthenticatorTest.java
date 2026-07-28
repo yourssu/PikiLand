@@ -100,6 +100,11 @@ class GithubAppAuthenticatorTest {
         assertTrue(decodedYaml.contains("ANTHROPIC_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\""), "ANTHROPIC_BASE_URL should be exported");
         assertTrue(decodedYaml.contains("OPENAI_API_KEY: \"${{ secrets.OPENAI_API_KEY || secrets.PIKILAND_AI_API_KEY }}\""), "OPENAI_API_KEY should be bound to repository secrets");
         assertTrue(decodedYaml.contains("ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\""), "ANTHROPIC_API_KEY should be bound to repository secrets");
+
+        // Verify Workflow Permissions for git push & PR creation
+        assertTrue(decodedYaml.contains("permissions:"), "Workflow should declare permissions block");
+        assertTrue(decodedYaml.contains("contents: write"), "Workflow should grant contents: write permission");
+        assertTrue(decodedYaml.contains("pull-requests: write"), "Workflow should grant pull-requests: write permission");
     }
 
     @Test

@@ -479,6 +479,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "jobs:\n" +
                 "  pikiland-patch:\n" +
                 "    runs-on: ubuntu-latest\n" +
+                "    permissions:\n" +
+                "      contents: write\n" +
+                "      pull-requests: write\n" +
                 "    steps:\n" +
                 "      - name: Checkout Target Repository\n" +
                 "        uses: actions/checkout@v4\n" +
