@@ -1,3 +1,17 @@
+function getCsrfHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    const tokenMeta = document.querySelector("meta[name='_csrf']");
+    const headerMeta = document.querySelector("meta[name='_csrf_header']");
+    if (tokenMeta && headerMeta) {
+        const token = tokenMeta.getAttribute("content");
+        const headerName = headerMeta.getAttribute("content");
+        if (token && headerName) {
+            headers[headerName] = token;
+        }
+    }
+    return headers;
+}
+
 function saveSettings(repoFullName) {
     const active = document.getElementById('toggle-' + repoFullName).checked;
     const slackUrl = document.getElementById('slack-' + repoFullName).value;
@@ -20,9 +34,7 @@ function saveSettings(repoFullName) {
 
     fetch('/api/settings', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: getCsrfHeaders(),
         body: JSON.stringify(payload)
     })
     .then(response => {
@@ -73,7 +85,7 @@ function saveSystemSettings() {
 
     fetch('/api/settings/system', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCsrfHeaders(),
         body: JSON.stringify(payload)
     })
     .then(response => {
@@ -96,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function approveHarness(repoFullName) {
     fetch('/api/settings/harness/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCsrfHeaders(),
         body: JSON.stringify({ fullName: repoFullName })
     })
     .then(response => {
@@ -117,7 +129,7 @@ function inferHarness(repoFullName) {
     showToast("Inferring test command...");
     fetch('/api/settings/harness/infer', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCsrfHeaders(),
         body: JSON.stringify({ fullName: repoFullName })
     })
     .then(response => {

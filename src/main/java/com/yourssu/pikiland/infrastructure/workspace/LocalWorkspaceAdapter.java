@@ -153,7 +153,8 @@ public class LocalWorkspaceAdapter implements WorkspacePort {
     }
 
     @Override
-    public void applyPatches(Path workspace, List<PatchInstruction> patches) {
+    public boolean applyPatches(Path workspace, List<PatchInstruction> patches) {
+        int appliedCount = 0;
         for (PatchInstruction patch : patches) {
             try {
                 Path targetFile = workspace.resolve(patch.getFilePath()).toAbsolutePath().normalize();
@@ -174,14 +175,11 @@ public class LocalWorkspaceAdapter implements WorkspacePort {
                 }
 
                 String content = Files.readString(targetFile, StandardCharsets.UTF_8);
-                int matchIndex = content.indexOf(patch.getOldCode());
-                if (matchIndex >= 0) {
+                String newContent = applyRobustPatch(content, patch.getOldCode(), patch.getNewCode());
+                if (newContent != null) {
                     System.out.println("Applying patch to: " + patch.getFilePath());
-                    // Replace only the FIRST occurrence to avoid clobbering duplicate code blocks
-                    String newContent = content.substring(0, matchIndex)
-                            + patch.getNewCode()
-                            + content.substring(matchIndex + patch.getOldCode().length());
                     Files.writeString(targetFile, newContent, StandardCharsets.UTF_8);
+                    appliedCount++;
                 } else {
                     System.err.println("Warning: Target old_code not found in: " + patch.getFilePath());
                 }
@@ -189,6 +187,89 @@ public class LocalWorkspaceAdapter implements WorkspacePort {
                 System.err.println("Failed to apply patch for: " + patch.getFilePath() + ", error: " + e.getMessage());
             }
         }
+        return appliedCount > 0 && appliedCount == patches.size();
+    }
+
+    private String applyRobustPatch(String content, String oldCode, String newCode) {
+        if (content == null || oldCode == null || newCode == null) return null;
+        if (oldCode.isEmpty()) return null;
+
+        // Step 1: Direct Exact Match
+        int matchIndex = content.indexOf(oldCode);
+        if (matchIndex >= 0) {
+            return content.substring(0, matchIndex)
+                    + newCode
+                    + content.substring(matchIndex + oldCode.length());
+        }
+
+        // Step 2: EOL Normalized Match (\r\n -> \n)
+        boolean hasCrlf = content.contains("\r\n");
+        String normContent = content.replace("\r\n", "\n");
+        String normOld = oldCode.replace("\r\n", "\n");
+        String normNew = newCode.replace("\r\n", "\n");
+
+        int normIndex = normContent.indexOf(normOld);
+        if (normIndex >= 0) {
+            String patchedNorm = normContent.substring(0, normIndex)
+                    + normNew
+                    + normContent.substring(normIndex + normOld.length());
+            return hasCrlf ? patchedNorm.replace("\n", "\r\n") : patchedNorm;
+        }
+
+        // Step 3: Line-by-Line Trimmed Matching
+        return replaceByTrimmedLines(content, oldCode, newCode);
+    }
+
+    private String replaceByTrimmedLines(String content, String oldCode, String newCode) {
+        boolean hasCrlf = content.contains("\r\n");
+        String[] contentLines = content.split("\\r?\\n", -1);
+        String[] oldLines = oldCode.split("\\r?\\n", -1);
+
+        List<String> targetTrimmed = new ArrayList<>();
+        for (String line : oldLines) {
+            targetTrimmed.add(line.trim());
+        }
+        while (!targetTrimmed.isEmpty() && targetTrimmed.get(targetTrimmed.size() - 1).isEmpty()) {
+            targetTrimmed.remove(targetTrimmed.size() - 1);
+        }
+        if (targetTrimmed.isEmpty()) return null;
+
+        int matchStartLine = -1;
+        int matchEndLine = -1;
+
+        for (int i = 0; i <= contentLines.length - targetTrimmed.size(); i++) {
+            boolean matched = true;
+            for (int j = 0; j < targetTrimmed.size(); j++) {
+                if (!contentLines[i + j].trim().equals(targetTrimmed.get(j))) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) {
+                matchStartLine = i;
+                matchEndLine = i + targetTrimmed.size() - 1;
+                break;
+            }
+        }
+
+        if (matchStartLine == -1) {
+            return null;
+        }
+
+        List<String> newContentLines = new ArrayList<>();
+        for (int i = 0; i < matchStartLine; i++) {
+            newContentLines.add(contentLines[i]);
+        }
+        String[] replacementLines = newCode.split("\\r?\\n", -1);
+        for (String line : replacementLines) {
+            newContentLines.add(line);
+        }
+        for (int i = matchEndLine + 1; i < contentLines.length; i++) {
+            newContentLines.add(contentLines[i]);
+        }
+
+        String delimiter = hasCrlf ? "\r\n" : "\n";
+        return String.join(delimiter, newContentLines);
     }
 
     @Override
@@ -313,7 +394,12 @@ public class LocalWorkspaceAdapter implements WorkspacePort {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(directory);
         Process p = pb.start();
-        int exitCode = p.waitFor();
+        boolean finished = p.waitFor(10, java.util.concurrent.TimeUnit.MINUTES);
+        if (!finished) {
+            p.destroyForcibly();
+            throw new RuntimeException("Command timed out: " + redactSecrets(String.join(" ", command)));
+        }
+        int exitCode = p.exitValue();
         if (exitCode != 0) {
             BufferedReader r = new BufferedReader(new InputStreamReader(p.getErrorStream()));
             String err = r.lines().collect(Collectors.joining("\n"));
@@ -329,8 +415,23 @@ public class LocalWorkspaceAdapter implements WorkspacePort {
         return text.replaceAll("x-access-token:[^@\\s]+@", "x-access-token:***@");
     }
 
+    private static final List<String> DANGEROUS_SUB_SHELL_PATTERNS = Arrays.asList("$(", "`", "eval ", "exec ");
+
     @Override
     public HarnessResult runHarness(Path workspace, String command) {
+        if (command == null || command.isBlank()) {
+            return new HarnessResult(false, "Empty harness command.");
+        }
+
+        // Subshell Injection Guard: block dynamic code execution subshells while allowing shell chaining (&&, ||, ;, |)
+        for (String pattern : DANGEROUS_SUB_SHELL_PATTERNS) {
+            if (command.contains(pattern)) {
+                String errMsg = "Security Error: Harness command contains disallowed subshell pattern '" + pattern + "'. Execution aborted.";
+                System.err.println("[Harness Security] " + errMsg);
+                return new HarnessResult(false, errMsg);
+            }
+        }
+
         try {
             File dir = workspace.toFile();
             ProcessBuilder pb = new ProcessBuilder("sh", "-c", command);
@@ -338,18 +439,43 @@ public class LocalWorkspaceAdapter implements WorkspacePort {
             pb.redirectErrorStream(true);
             Process p = pb.start();
 
-            // Capture output logs
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[Harness] " + line);
-                    output.append(line).append("\n");
+            // Close process stdin immediately to prevent child process from hanging while waiting for input
+            try {
+                p.getOutputStream().close();
+            } catch (Exception ignored) {}
+
+            // Asynchronously read output stream to prevent IO stream deadlock or hanging
+            java.util.concurrent.CompletableFuture<String> outputFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                StringBuilder output = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[Harness] " + line);
+                        output.append(line).append("\n");
+                    }
+                } catch (Exception e) {
+                    output.append("\n[Error reading harness output: ").append(e.getMessage()).append("]");
                 }
+                return output.toString();
+            });
+
+            boolean completed = p.waitFor(15, java.util.concurrent.TimeUnit.MINUTES);
+            if (!completed) {
+                p.destroyForcibly();
+                System.err.println("[Harness] Command '" + command + "' timed out after 15 minutes.");
+                return new HarnessResult(false, "[Error] Harness command timed out after 15 minutes.");
             }
-            int exitCode = p.waitFor();
+
+            String outputText = "";
+            try {
+                outputText = outputFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception ex) {
+                outputText = "[Warning: Output stream read timed out or failed]";
+            }
+
+            int exitCode = p.exitValue();
             System.out.println("[Harness] Command '" + command + "' exited with code: " + exitCode);
-            return new HarnessResult(exitCode == 0, output.toString());
+            return new HarnessResult(exitCode == 0, outputText);
         } catch (Exception e) {
             String errMsg = "Failed to execute command '" + command + "': " + e.getMessage();
             System.err.println("[Harness] " + errMsg);

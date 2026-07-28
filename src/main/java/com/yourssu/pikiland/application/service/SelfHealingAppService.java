@@ -46,22 +46,16 @@ public class SelfHealingAppService {
             // Get installation token
             String token = githubAuthPort.getInstallationAccessToken(installationId);
 
-            // Truncate logs if needed
-            String logToAnalyze = rawLogOrIssueBody;
-            if ("workflow_run".equals(eventType)) {
-                System.out.println("Downloading logs for run: " + runId);
-                String rawLogs = githubAuthPort.downloadWorkflowLogs(repoName, runId, token);
-                logToAnalyze = logTruncator.truncateLogForAi(rawLogs, 300);
-            }
-
             // Ensure the workflow file is installed on the default branch
             System.out.println("Ensuring PikiLand workflow is installed on branch: " + defaultBranch);
             githubAuthPort.installWorkflowIfMissing(repoName, token, defaultBranch);
 
-            // Build inputs for workflow dispatch
+            // Build inputs for workflow dispatch.
+            // Note: log_content is left empty to prevent GitHub Workflow Dispatch API 422 error (1000-char input limit).
+            // PikiLand CLI will download the full logs or issue body directly using run_id and event_type.
             Map<String, Object> inputs = new HashMap<>();
             inputs.put("event_type", eventType);
-            inputs.put("log_content", logToAnalyze != null ? logToAnalyze : "");
+            inputs.put("log_content", "");
             inputs.put("run_id", runId != null ? runId : "");
             inputs.put("target_branch", targetBranch != null ? targetBranch : defaultBranch);
             inputs.put("slack_webhook_url", settings.getSlackWebhookUrl() != null ? settings.getSlackWebhookUrl() : "");

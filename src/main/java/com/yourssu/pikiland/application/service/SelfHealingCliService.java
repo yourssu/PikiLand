@@ -60,14 +60,31 @@ public class SelfHealingCliService {
         if (eventType == null || eventType.isBlank()) {
             throw new IllegalArgumentException("PIKILAND_EVENT_TYPE environment variable is required.");
         }
-        if (logContent == null || logContent.isBlank()) {
-            throw new IllegalArgumentException("PIKILAND_LOG_CONTENT environment variable is required.");
-        }
         if (token == null || token.isBlank()) {
             throw new IllegalArgumentException("GITHUB_TOKEN environment variable is required.");
         }
         if (repoName == null || repoName.isBlank()) {
             throw new IllegalArgumentException("GITHUB_REPOSITORY environment variable is required.");
+        }
+
+        // If PIKILAND_LOG_CONTENT was omitted or empty (e.g. to bypass GitHub Workflow Dispatch 1000-char input limit),
+        // download logs or issue body dynamically using PIKILAND_RUN_ID.
+        if (logContent == null || logContent.isBlank()) {
+            if (runId == null || runId.isBlank()) {
+                throw new IllegalArgumentException("Either PIKILAND_LOG_CONTENT or a valid PIKILAND_RUN_ID is required.");
+            }
+            if ("workflow_run".equals(eventType)) {
+                System.out.println("[CLI] Log content omitted. Downloading workflow logs for Run ID: " + runId + " in " + repoName);
+                String rawLogs = githubAuthPort.downloadWorkflowLogs(repoName, runId, token);
+                logContent = logTruncator.truncateLogForAi(rawLogs, 300);
+            } else if ("issues".equals(eventType)) {
+                System.out.println("[CLI] Log content omitted. Fetching issue body for Issue #" + runId + " in " + repoName);
+                logContent = githubAuthPort.fetchIssueBody(repoName, runId, token);
+            }
+        }
+
+        if (logContent == null || logContent.isBlank()) {
+            throw new IllegalArgumentException("Failed to acquire log content or issue body for event: " + eventType + ", run_id: " + runId);
         }
 
         Path workspace = Paths.get(workspacePathStr != null && !workspacePathStr.isBlank() ? workspacePathStr : ".");
@@ -103,13 +120,12 @@ public class SelfHealingCliService {
             System.out.println("[Harness] Bug reproduction SUCCEEDED: Tests failed as expected on buggy workspace. Proceeding to patch generation.");
         }
 
-        // Custom AI Base URL injection if provided
+        // Custom AI Base URL injection if provided (Handled in AI adapters via environment/property getters)
         String customBaseUrl = getEnvOrProperty("PIKILAND_AI_BASE_URL");
         if (customBaseUrl == null || customBaseUrl.isBlank()) {
             customBaseUrl = getEnvOrProperty("OPENAI_BASE_URL");
         }
         if (customBaseUrl != null && !customBaseUrl.isBlank()) {
-            System.setProperty("app.ai.base-url", customBaseUrl);
             System.out.println("[AI Gateway] Using Custom Base URL: " + customBaseUrl);
         }
 
@@ -118,17 +134,22 @@ public class SelfHealingCliService {
         String anthropicKey = getEnvOrProperty("ANTHROPIC_API_KEY");
         AiAgentPort selectedAgent;
 
-        if (anthropicKey != null && !anthropicKey.isBlank() && (customModel != null && customModel.startsWith("claude"))) {
-            selectedAgent = anthropicAdapter;
-            System.out.println("Selected Anthropic Adapter (based on ANTHROPIC_API_KEY & model " + customModel + ")");
-        } else if (openAiKey != null && !openAiKey.isBlank()) {
+        if ((anthropicKey != null && !anthropicKey.isBlank()) || (customModel != null && customModel.toLowerCase().contains("claude"))) {
+            if (customModel != null && customModel.toLowerCase().contains("claude")) {
+                selectedAgent = anthropicAdapter;
+                System.out.println("Selected Anthropic Adapter (for model: " + customModel + ")");
+            } else if (openAiKey != null && !openAiKey.isBlank()) {
+                selectedAgent = openAiAdapter;
+                System.out.println("Selected OpenAI Adapter (based on OPENAI_API_KEY)");
+            } else {
+                selectedAgent = anthropicAdapter;
+                System.out.println("Selected Anthropic Adapter (based on ANTHROPIC_API_KEY)");
+            }
+        } else if ((openAiKey != null && !openAiKey.isBlank()) || (customBaseUrl != null && !customBaseUrl.isBlank())) {
             selectedAgent = openAiAdapter;
-            System.out.println("Selected OpenAI Adapter (based on OPENAI_API_KEY)");
-        } else if (anthropicKey != null && !anthropicKey.isBlank()) {
-            selectedAgent = anthropicAdapter;
-            System.out.println("Selected Anthropic Adapter (based on ANTHROPIC_API_KEY)");
+            System.out.println("Selected OpenAI Adapter (based on key/custom base URL)");
         } else {
-            throw new IllegalStateException("Neither OPENAI_API_KEY nor ANTHROPIC_API_KEY is configured in the environment.");
+            throw new IllegalStateException("Neither OPENAI_API_KEY nor ANTHROPIC_API_KEY nor custom base URL is configured in the environment.");
         }
 
         try {
@@ -143,7 +164,7 @@ public class SelfHealingCliService {
 
             List<String> prUrls = new ArrayList<>();
             if (aiResult.isPrNeeded() && aiResult.getPrCandidates() != null && !aiResult.getPrCandidates().isEmpty()) {
-                System.out.println("AI requested PR. Total candidates: " + aiResult.getPrCandidates().size());
+                System.out.println("AI requested PR. Evaluating " + aiResult.getPrCandidates().size() + " candidate(s) for the Single Best PR...");
 
                 // Detect base branch name
                 String baseBranch = System.getenv("PIKILAND_TARGET_BRANCH");
@@ -159,6 +180,8 @@ public class SelfHealingCliService {
                 System.out.println("Base branch for PRs: " + baseBranch);
 
                 String initialRef = workspacePort.getCurrentBranch(workspace);
+                PrCandidate bestVerifiedCandidate = null;
+                List<PatchInstruction> bestVerifiedPatches = null;
 
                 for (int i = 0; i < aiResult.getPrCandidates().size(); i++) {
                     PrCandidate candidate = aiResult.getPrCandidates().get(i);
@@ -167,7 +190,6 @@ public class SelfHealingCliService {
                         System.out.println("Candidate " + (i + 1) + " has empty patch instructions. Skipping.");
                         continue;
                     }
-
 
                     List<List<PatchInstruction>> triedPatches = new ArrayList<>();
                     Map<String, Integer> triedHarnessOutputCounts = new HashMap<>();
@@ -182,8 +204,8 @@ public class SelfHealingCliService {
                         }
                     }
 
-                    boolean patchSuccess = false;
-                    System.out.println("Applying patches for candidate " + (i + 1) + "...");
+                    boolean candidateSuccess = false;
+                    System.out.println("Evaluating candidate " + (i + 1) + "...");
 
                     for (int retry = 0; retry <= rRetries; retry++) {
                         System.out.println("[Ralph Loop] Candidate " + (i + 1) + ", Refinement " + retry + "/" + rRetries);
@@ -193,12 +215,16 @@ public class SelfHealingCliService {
                             workspacePort.resetToCleanState(workspace, initialRef);
 
                             // Apply current patches
-                            workspacePort.applyPatches(workspace, currentPatches);
+                            boolean applied = workspacePort.applyPatches(workspace, currentPatches);
+                            if (!applied) {
+                                System.err.println("Candidate " + (i + 1) + ": Patches could not be cleanly applied to workspace. Discarding retry.");
+                                break;
+                            }
                             triedPatches.add(currentPatches);
 
                             // Execute harness
                             if (harnessCmd == null || harnessCmd.isBlank()) {
-                                patchSuccess = true;
+                                candidateSuccess = true;
                                 break;
                             }
 
@@ -207,7 +233,7 @@ public class SelfHealingCliService {
 
                             if (hResAfter.isSuccess()) {
                                 System.out.println("[Harness] Patch verification SUCCEEDED for candidate " + (i + 1) + " (Tests passed successfully).");
-                                patchSuccess = true;
+                                candidateSuccess = true;
                                 break;
                             }
 
@@ -254,7 +280,6 @@ public class SelfHealingCliService {
 
                             List<PatchInstruction> nextPatches = refinedResult.getPrCandidates().get(0).getPatchInstructions();
 
-
                             // Infinite loop check: duplicate patch candidate check (Duplicate Patch Guard)
                             if (isDuplicatePatch(nextPatches, triedPatches)) {
                                 System.err.println("[Ralph Loop] Duplicate Patch Guard: AI proposed an identical patch. Aborting refinement.");
@@ -270,38 +295,51 @@ public class SelfHealingCliService {
                         }
                     }
 
-                    if (patchSuccess) {
-                        try {
-                            // Create unique branch name
-                            String branchName = "fix/ai-candidate-" + (i + 1) + "-" + System.currentTimeMillis();
-                            String commitMsg = candidate.getPrTitle();
-
-                            workspacePort.commitAndPush(workspace, branchName, commitMsg, token, repoName);
-
-                            // Submit PR targeting baseBranch
-                            String detailedPrBody = candidate.getPrBody() != null ? candidate.getPrBody() : "";
-                            if (logContent != null && !logContent.isBlank()) {
-                                detailedPrBody += "\n\n---\n\n<details>\n<summary>🔍 원본 에러 로그 및 발생 Context 보기</summary>\n\n```\n" + logContent + "\n```\n</details>";
-                            }
-
-                            String prUrl = githubAuthPort.createPullRequest(
-                                repoName,
-                                candidate.getPrTitle(),
-                                detailedPrBody,
-                                branchName,
-                                baseBranch,
-                                token
-                            );
-
-                            if (prUrl != null) {
-                                prUrls.add(prUrl);
-                                System.out.println("Created PR for candidate " + (i + 1) + ": " + prUrl);
-                            }
-                        } catch (Exception ex) {
-                            System.err.println("Failed to create PR for candidate " + (i + 1) + ": " + ex.getMessage());
-                            ex.printStackTrace();
-                        }
+                    if (candidateSuccess) {
+                        System.out.println("Candidate " + (i + 1) + " verified successfully. Selected as the Single Best PR!");
+                        bestVerifiedCandidate = candidate;
+                        bestVerifiedPatches = currentPatches;
+                        // Single Best PR rule: Stop checking remaining candidates once a verified fix is found
+                        break;
                     }
+                }
+
+                // Publish only the Single Best Verified PR
+                if (bestVerifiedCandidate != null) {
+                    try {
+                        // Ensure workspace has the best verified patch applied
+                        workspacePort.resetToCleanState(workspace, initialRef);
+                        workspacePort.applyPatches(workspace, bestVerifiedPatches);
+
+                        String branchName = "fix/ai-verified-patch-" + System.currentTimeMillis();
+                        String commitMsg = bestVerifiedCandidate.getPrTitle();
+
+                        workspacePort.commitAndPush(workspace, branchName, commitMsg, token, repoName);
+
+                        String detailedPrBody = bestVerifiedCandidate.getPrBody() != null ? bestVerifiedCandidate.getPrBody() : "";
+                        if (logContent != null && !logContent.isBlank()) {
+                            detailedPrBody += "\n\n---\n\n<details>\n<summary>🔍 원본 에러 로그 및 발생 Context 보기</summary>\n\n```\n" + logContent + "\n```\n</details>";
+                        }
+
+                        String prUrl = githubAuthPort.createPullRequest(
+                            repoName,
+                            bestVerifiedCandidate.getPrTitle(),
+                            detailedPrBody,
+                            branchName,
+                            baseBranch,
+                            token
+                        );
+
+                        if (prUrl != null) {
+                            prUrls.add(prUrl);
+                            System.out.println("Successfully created Single Best Verified PR: " + prUrl);
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Failed to create PR for verified candidate: " + ex.getMessage());
+                        ex.printStackTrace();
+                    }
+                } else {
+                    System.out.println("No PR candidates passed harness verification. No PR was created (Zero PR noise policy).");
                 }
             }
 

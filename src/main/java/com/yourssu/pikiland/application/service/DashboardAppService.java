@@ -188,10 +188,18 @@ public class DashboardAppService {
     }
 
     public RepoSettingsDto reInferHarness(String fullName) {
-        String defaultCmd = "./gradlew test";
+        return reInferHarness(fullName, null);
+    }
+
+    public RepoSettingsDto reInferHarness(String fullName, String accessToken) {
+        List<String> filenames = fetchRemoteRepoFilenames(fullName, accessToken);
+        String inferredCmd = harnessInferenceService.inferHarnessCmdFromFilenames(filenames);
+        if (inferredCmd == null || inferredCmd.isBlank()) {
+            inferredCmd = "./gradlew test";
+        }
         RepoSettings settings = repoSettingsRepository.findById(fullName)
                 .orElseGet(() -> new RepoSettings(fullName, false, "", "", ""));
-        settings.setInferredHarness(defaultCmd, HarnessSource.AUTO_INFERRED);
+        settings.setInferredHarness(inferredCmd, HarnessSource.AUTO_INFERRED);
         repoSettingsRepository.save(settings);
         return new RepoSettingsDto(
                 settings.getRepositoryFullName(),
@@ -205,6 +213,61 @@ public class DashboardAppService {
                 settings.getHarnessSource().name(),
                 settings.getRalphMaxRetries()
         );
+    }
+
+    public List<String> fetchRemoteRepoFilenames(String repoFullName, String accessToken) {
+        List<String> filenames = new ArrayList<>();
+        if (accessToken == null || accessToken.isBlank() || repoFullName == null || !repoFullName.contains("/")) {
+            return filenames;
+        }
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + accessToken);
+            headers.set("Accept", "application/vnd.github+json");
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            String url = "https://api.github.com/repos/" + repoFullName + "/contents";
+            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, new ParameterizedTypeReference<List<Map<String, Object>>>() {}
+            );
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                for (Map<String, Object> item : response.getBody()) {
+                    String name = (String) item.get("name");
+                    if (name != null) {
+                        filenames.add(name);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[DashboardAppService] Failed to fetch contents for " + repoFullName + ": " + e.getMessage());
+        }
+        return filenames;
+    }
+
+    public boolean hasUserAdminOrPushPermission(String accessToken, String repoFullName) {
+        if (accessToken == null || accessToken.isBlank() || repoFullName == null || !repoFullName.contains("/")) {
+            return false;
+        }
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + accessToken);
+            headers.set("Accept", "application/vnd.github+json");
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            String url = "https://api.github.com/repos/" + repoFullName;
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> permissions = (Map<String, Object>) response.getBody().get("permissions");
+                if (permissions != null) {
+                    Boolean admin = (Boolean) permissions.get("admin");
+                    Boolean push = (Boolean) permissions.get("push");
+                    return Boolean.TRUE.equals(admin) || Boolean.TRUE.equals(push);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[DashboardAppService] Failed to check permissions for " + repoFullName + ": " + e.getMessage());
+        }
+        return false;
     }
 }
 

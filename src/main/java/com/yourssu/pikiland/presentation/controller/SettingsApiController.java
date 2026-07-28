@@ -54,18 +54,12 @@ public class SettingsApiController {
             @RequestBody RepoSettingsDto dto,
             @AuthenticationPrincipal OAuth2User oauth2User) {
 
-        // --- Ownership Gate (production only) ---
-        // Skipped when isDebug=true so local/debug environments remain frictionless.
-        if (!isDebug && oauth2User != null) {
-            String[] parts = dto.getFullName() == null ? new String[0] : dto.getFullName().split("/", 2);
-            if (parts.length < 2 || parts[0].isBlank()) {
-                return ResponseEntity.badRequest().build();
+        if (!isDebug) {
+            if (oauth2User == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-            String repoOwner = parts[0];
-            String authenticatedUser = oauth2User.getAttribute("login");
-
-            if (!repoOwner.equals(authenticatedUser)) {
-                System.err.println("[Settings] FORBIDDEN — user '" + authenticatedUser +
+            if (!isAuthorizedUser(dto.getFullName(), oauth2User)) {
+                System.err.println("[Settings] FORBIDDEN — user '" + oauth2User.getAttribute("login") +
                         "' attempted to modify settings for repo '" + dto.getFullName() + "'");
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
@@ -79,8 +73,13 @@ public class SettingsApiController {
     public ResponseEntity<RepoSettingsDto> approveHarness(
             @RequestBody RepoSettingsDto dto,
             @AuthenticationPrincipal OAuth2User oauth2User) {
-        if (!isDebug && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!isDebug) {
+            if (oauth2User == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            if (!isAuthorizedUser(dto.getFullName(), oauth2User)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
         }
         RepoSettingsDto result = dashboardAppService.approveInferredHarness(dto.getFullName());
         return ResponseEntity.ok(result);
@@ -90,18 +89,31 @@ public class SettingsApiController {
     public ResponseEntity<RepoSettingsDto> inferHarness(
             @RequestBody RepoSettingsDto dto,
             @AuthenticationPrincipal OAuth2User oauth2User) {
-        if (!isDebug && oauth2User != null && !isOwner(dto.getFullName(), oauth2User)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!isDebug) {
+            if (oauth2User == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            if (!isAuthorizedUser(dto.getFullName(), oauth2User)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
         }
         RepoSettingsDto result = dashboardAppService.reInferHarness(dto.getFullName());
         return ResponseEntity.ok(result);
     }
 
-    private boolean isOwner(String fullName, OAuth2User oauth2User) {
+    private boolean isAuthorizedUser(String fullName, OAuth2User oauth2User) {
         if (fullName == null || oauth2User == null) return false;
         String[] parts = fullName.split("/", 2);
         if (parts.length < 2 || parts[0].isBlank()) return false;
         String authenticatedUser = oauth2User.getAttribute("login");
-        return parts[0].equals(authenticatedUser);
+        if (authenticatedUser != null && parts[0].equalsIgnoreCase(authenticatedUser)) {
+            return true;
+        }
+        // Allow System Admins to manage any repository
+        if (adminSecurityChecker.isAdmin(oauth2User)) {
+            return true;
+        }
+        // Reject unauthorized users if neither owner nor system admin
+        return false;
     }
 }

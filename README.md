@@ -58,8 +58,8 @@ PikiLand는 이벤트 조정(Coordinator)과 실제 복구 작업(Worker)이 분
 
 ### 2. CLI 모드 (Execution Engine)
 * **목적**: 격리된 환경에서의 코드 분석, 빌드 테스트 및 패치/PR 생성
-* **실행 환경**: **GitHub Actions Runner** (단발성 Batch 실행)
-  * Web App에 의해 연동 리포지토리의 GitHub Actions가 트리거되면, Runner 내부의 Docker 컨테이너 (`ghcr.io/yourssu/pikiland:latest`)로 실행됩니다. *<- 도커 제거 필요*
+* **실행 환경**: **GitHub Actions Runner** (단발성 Native Java 21 Batch 실행)
+  * Web App에 의해 연동 리포지토리의 GitHub Actions가 트리거되면, Runner 환경 내에서 Native Java 21로 direct 실행됩니다. (`./gradlew bootRun --args="--cli"`)
 * **동작 흐름**:
   1. 대상 코드를 체크아웃하고 `AGENTS.md` 또는 `AI.md` 안전장치 파일이 있는지 확인합니다.
   2. 사전 빌드(Harness) 실행으로 버그를 재현하고, AI API를 사용해 패치 후보를 진단합니다.

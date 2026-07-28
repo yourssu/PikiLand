@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -16,6 +17,51 @@ public class HarnessInferenceService {
 
     public HarnessInferenceService(RepoSettingsRepository repoSettingsRepository) {
         this.repoSettingsRepository = repoSettingsRepository;
+    }
+
+    public String inferHarnessCmdFromFilenames(List<String> filenames) {
+        if (filenames == null || filenames.isEmpty()) {
+            return null;
+        }
+
+        // 1. Gradle
+        if (filenames.contains("build.gradle.kts") || filenames.contains("build.gradle")) {
+            return filenames.contains("gradlew") ? "./gradlew test" : "./gradlew test";
+        }
+
+        // 2. Maven
+        if (filenames.contains("pom.xml")) {
+            return filenames.contains("mvnw") ? "./mvnw test" : "mvn test";
+        }
+
+        // 3. Node.js / JavaScript
+        if (filenames.contains("package.json")) {
+            return "npm test";
+        }
+
+        // 4. Python
+        if (filenames.contains("requirements.txt") ||
+            filenames.contains("pytest.ini") ||
+            filenames.contains("pyproject.toml")) {
+            return "pytest";
+        }
+
+        // 5. Go
+        if (filenames.contains("go.mod")) {
+            return "go test ./...";
+        }
+
+        // 6. Rust
+        if (filenames.contains("Cargo.toml")) {
+            return "cargo test";
+        }
+
+        // 7. Makefile
+        if (filenames.contains("Makefile") || filenames.contains("makefile")) {
+            return "make test";
+        }
+
+        return null;
     }
 
     public String inferHarnessCmdFromWorkspace(Path workspace) {
@@ -56,7 +102,7 @@ public class HarnessInferenceService {
         }
 
         // 7. Makefile
-        if (Files.exists(workspace.resolve("Makefile"))) {
+        if (Files.exists(workspace.resolve("Makefile")) || Files.exists(workspace.resolve("makefile"))) {
             return "make test";
         }
 

@@ -38,7 +38,16 @@ public class OpenAiAdapter implements AiAgentPort {
             factory.setReadTimeout(60000);
             return new RestTemplate(factory);
         });
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = new ObjectMapper()
+                .configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_COMMENTS, true)
+                .configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true)
+                .configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+    }
+
+    public enum ResponseMode {
+        STRUCTURED_SCHEMA,
+        JSON_OBJECT,
+        PROMPT_ONLY
     }
 
     @Override
@@ -48,11 +57,9 @@ public class OpenAiAdapter implements AiAgentPort {
         System.out.println("Starting AI diagnostics using model: " + model);
         
         String systemPrompt = getSystemPrompt();
-
         String userPrompt = "이벤트 유형: " + eventType + "\n\n[분석할 데이터]\n" + logContent;
 
         List<Map<String, Object>> messages = new ArrayList<>();
-        
         Map<String, Object> sysMsg = new HashMap<>();
         sysMsg.put("role", "system");
         sysMsg.put("content", systemPrompt);
@@ -66,68 +73,33 @@ public class OpenAiAdapter implements AiAgentPort {
         String rawResultJson = null;
         boolean success = false;
 
-        // Dynamic loop budget: proportional to repo size so tiny repos aren't over-charged
-        // and large repos still have enough room to explore deeply.
-        // Formula: min(60, 15 + fileCount / 30)
-        //   10 files  → 15 iterations (minimum)
-        //   300 files → 25 iterations
-        //   900 files → 45 iterations
-        //  1350+ files → 60 iterations (cap)
         int fileCount = workspacePort.countSourceFiles(workspace);
         int maxIterations = Math.min(60, 15 + (fileCount / 30));
         System.out.println("[AI] Repo source file count: " + fileCount +
                 " → dynamic agent loop cap: " + maxIterations + " iterations");
 
-        // Try 3 times using Structured Outputs
-        for (int attempt = 1; attempt <= 3; attempt++) {
+        // 3-Stage Layered Fallback Pipeline:
+        // Step 1: STRUCTURED_SCHEMA (Strict Mode)
+        // Step 2: JSON_OBJECT Mode (DeepSeek, Ollama, Groq, LocalAI, etc.)
+        // Step 3: PROMPT_ONLY Mode (Markdown JSON output guide in prompt)
+        List<ResponseMode> pipeline = Arrays.asList(ResponseMode.STRUCTURED_SCHEMA, ResponseMode.JSON_OBJECT, ResponseMode.PROMPT_ONLY);
+
+        for (ResponseMode mode : pipeline) {
+            System.out.println("[AI Pipeline] Attempting completion with mode: " + mode);
             try {
-                System.out.println("Attempting AI completion (Try " + attempt + "/3)...");
-                rawResultJson = runAgenticLoop(messages, model, workspace, workspacePort, true, maxIterations);
-                success = true;
-                break;
-            } catch (Exception e) {
-                System.err.println("Structured Output attempt " + attempt + " failed: " + e.getMessage());
-            }
-        }
-
-        // Fallback to standard text completion (no structured output schema)
-        if (!success) {
-            System.out.println("Falling back to standard text completion...");
-            String fallbackPrompt = systemPrompt + "\n반드시 다음 구조의 JSON 형식으로만 응답해 주십시오. (마크다운 ```json ... ``` 블록으로 감싸서 출력하세요).\n" +
-                    "{\n" +
-                    "  \"is_confident\": true/false,\n" +
-                    "  \"summary\": \"...\",\n" +
-                    "  \"impact\": \"...\",\n" +
-                    "  \"cause_description\": \"...\",\n" +
-                    "  \"pr_needed\": true/false,\n" +
-                    "  \"pr_candidates\": [\n" +
-                    "    {\n" +
-                    "      \"patch_summary\": \"...\",\n" +
-                    "      \"pr_title\": \"...\",\n" +
-                    "      \"pr_body\": \"...\",\n" +
-                    "      \"patch_instructions\": [\n" +
-                    "        {\n" +
-                    "          \"file_path\": \"...\",\n" +
-                    "          \"old_code\": \"...\",\n" +
-                    "          \"new_code\": \"...\"\n" +
-                    "        }\n" +
-                    "      ]\n" +
-                    "    }\n" +
-                    "  ]\n" +
-                    "}";
-            
-            List<Map<String, Object>> fallbackMessages = new ArrayList<>(messages);
-            fallbackMessages.get(0).put("content", fallbackPrompt);
-
-            for (int attempt = 1; attempt <= 3; attempt++) {
-                try {
-                    System.out.println("Attempting Fallback Completion (Try " + attempt + "/3)...");
-                    rawResultJson = runAgenticLoop(fallbackMessages, model, workspace, workspacePort, false, maxIterations);
+                List<Map<String, Object>> currentMessages = messages;
+                if (mode == ResponseMode.PROMPT_ONLY) {
+                    currentMessages = new ArrayList<>(messages);
+                    currentMessages.get(0).put("content", getFallbackSystemPrompt(systemPrompt));
+                }
+                rawResultJson = runAgenticLoop(currentMessages, model, workspace, workspacePort, mode, maxIterations);
+                if (rawResultJson != null && !rawResultJson.isBlank()) {
                     success = true;
                     break;
-                } catch (Exception e) {
-                    System.err.println("Fallback completion also failed: " + e.getMessage());
                 }
+            } catch (Exception e) {
+                System.err.println("[AI Pipeline] Mode " + mode + " failed: " + e.getMessage());
+                // Immediately proceed to next mode in pipeline on 400 Bad Request or parameter errors
             }
         }
 
@@ -138,13 +110,38 @@ public class OpenAiAdapter implements AiAgentPort {
         return parseAnalysisResult(rawResultJson);
     }
 
-    private String runAgenticLoop(List<Map<String, Object>> messages, String model, Path workspace, WorkspacePort workspacePort, boolean useStructured, int maxIterations) throws Exception {
+    private String getFallbackSystemPrompt(String basePrompt) {
+        return basePrompt + "\n반드시 다음 구조의 JSON 형식으로만 응답해 주십시오. (마크다운 ```json ... ``` 블록으로 감싸서 출력하세요).\n" +
+                "{\n" +
+                "  \"is_confident\": true/false,\n" +
+                "  \"summary\": \"...\",\n" +
+                "  \"impact\": \"...\",\n" +
+                "  \"cause_description\": \"...\",\n" +
+                "  \"pr_needed\": true/false,\n" +
+                "  \"pr_candidates\": [\n" +
+                "    {\n" +
+                "      \"patch_summary\": \"...\",\n" +
+                "      \"pr_title\": \"...\",\n" +
+                "      \"pr_body\": \"...\",\n" +
+                "      \"patch_instructions\": [\n" +
+                "        {\n" +
+                "          \"file_path\": \"...\",\n" +
+                "          \"old_code\": \"...\",\n" +
+                "          \"new_code\": \"...\"\n" +
+                "        }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+    }
+
+    private String runAgenticLoop(List<Map<String, Object>> messages, String model, Path workspace, WorkspacePort workspacePort, ResponseMode mode, int maxIterations) throws Exception {
         Map<String, Integer> toolCallHistory = new HashMap<>();
         int iteration = 0;
 
         while (true) {
             iteration++;
-            System.out.println(" -> Agentic Loop Iteration " + iteration + "/" + maxIterations);
+            System.out.println(" -> Agentic Loop Iteration " + iteration + "/" + maxIterations + " [Mode: " + mode + "]");
 
             if (iteration > maxIterations) {
                 throw new RuntimeException(
@@ -160,16 +157,21 @@ public class OpenAiAdapter implements AiAgentPort {
             requestBody.put("temperature", 0.2);
             requestBody.put("tools", getToolsDefinitions());
 
-            if (useStructured) {
+            if (mode == ResponseMode.STRUCTURED_SCHEMA) {
                 requestBody.put("response_format", getResponseSchema());
+            } else if (mode == ResponseMode.JSON_OBJECT) {
+                Map<String, String> jsonObjFormat = new HashMap<>();
+                jsonObjFormat.put("type", "json_object");
+                requestBody.put("response_format", jsonObjFormat);
             }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
+            headers.set("Authorization", "Bearer " + getEffectiveApiKey());
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(baseUrl + "/chat/completions", entity, String.class);
+            String url = getEffectiveBaseUrl() + "/chat/completions";
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
             if (response.getStatusCode() != HttpStatus.OK) {
                 throw new RuntimeException("API Call failed: " + response.getStatusCode() + " - " + response.getBody());
@@ -248,9 +250,19 @@ public class OpenAiAdapter implements AiAgentPort {
     }
 
     private String sanitizeJsonString(String rawText) {
+        if (rawText == null) return "";
         String jsonStr = rawText.trim();
         
-        // Extract the outer-most JSON object if not already clean
+        // Strip markdown code block wrapper if present (e.g. ```json ... ```)
+        if (jsonStr.startsWith("```")) {
+            int firstNewline = jsonStr.indexOf('\n');
+            int lastBackticks = jsonStr.lastIndexOf("```");
+            if (firstNewline != -1 && lastBackticks > firstNewline) {
+                jsonStr = jsonStr.substring(firstNewline + 1, lastBackticks).trim();
+            }
+        }
+
+        // Extract the outer-most JSON object if surrounded by extra conversational text
         if (!(jsonStr.startsWith("{") && jsonStr.endsWith("}"))) {
             int firstBrace = jsonStr.indexOf("{");
             int lastBrace = jsonStr.lastIndexOf("}");
@@ -259,14 +271,7 @@ public class OpenAiAdapter implements AiAgentPort {
             }
         }
 
-        jsonStr = jsonStr.replaceAll("/\\*.*?\\*/", "");
-        String[] lines = jsonStr.split("\\r?\\n");
-        List<String> cleanedLines = new ArrayList<>();
-        for (String line : lines) {
-            String cleanedLine = line.replaceAll("(?<!https)(?<!http)(?<!:)//.*$", "");
-            cleanedLines.add(cleanedLine);
-        }
-        jsonStr = String.join("\n", cleanedLines);
+        // Clean trailing commas before closing braces/brackets if present
         jsonStr = jsonStr.replaceAll(",\\s*([\\}\\],])", "$1");
 
         return jsonStr.trim();
@@ -505,60 +510,23 @@ public class OpenAiAdapter implements AiAgentPort {
         int fileCount = workspacePort.countSourceFiles(workspace);
         int maxIterations = Math.min(60, 15 + (fileCount / 30));
 
-        for (int attempt = 1; attempt <= 3; attempt++) {
+        List<ResponseMode> pipeline = Arrays.asList(ResponseMode.STRUCTURED_SCHEMA, ResponseMode.JSON_OBJECT, ResponseMode.PROMPT_ONLY);
+
+        for (ResponseMode mode : pipeline) {
+            System.out.println("[AI Refinement Pipeline] Attempting completion with mode: " + mode);
             try {
-                System.out.println("Attempting AI refinement completion (Try " + attempt + "/3)...");
-                rawResultJson = runAgenticLoop(messages, model, workspace, workspacePort, true, maxIterations);
-                success = true;
-                break;
-            } catch (Exception e) {
-                System.err.println("Structured Output refinement attempt " + attempt + " failed: " + e.getMessage());
-            }
-        }
-
-        if (!success) {
-            System.out.println("Falling back to standard text completion for refinement...");
-            String fallbackPrompt = systemPrompt + "\nRespond in JSON markdown block:\n" +
-                    "{\n" +
-                    "  \"is_confident\": true,\n" +
-                    "  \"summary\": \"...\",\n" +
-                    "  \"impact\": \"...\",\n" +
-                    "  \"cause_description\": \"...\",\n" +
-                    "  \"pr_needed\": true,\n" +
-                    "  \"pr_candidates\": [\n" +
-                    "    {\n" +
-                    "      \"patch_summary\": \"...\",\n" +
-                    "      \"pr_title\": \"...\",\n" +
-                    "      \"pr_body\": \"...\",\n" +
-                    "      \"patch_instructions\": [\n" +
-                    "        {\n" +
-                    "          \"file_path\": \"...\",\n" +
-                    "          \"old_code\": \"...\",\n" +
-                    "          \"new_code\": \"...\"\n" +
-                    "        }\n" +
-                    "      ]\n" +
-                    "    }\n" +
-                    "  ]\n" +
-                    "}";
-
-            List<Map<String, Object>> fallbackMessages = new ArrayList<>();
-            Map<String, Object> fallbackSysMsg = new HashMap<>();
-            fallbackSysMsg.put("role", "system");
-            fallbackSysMsg.put("content", fallbackPrompt);
-            fallbackMessages.add(fallbackSysMsg);
-            fallbackMessages.add(userMsg1);
-            fallbackMessages.add(assistantMsg);
-            fallbackMessages.add(userMsg2);
-
-            for (int attempt = 1; attempt <= 3; attempt++) {
-                try {
-                    System.out.println("Attempting Fallback Refinement Completion (Try " + attempt + "/3)...");
-                    rawResultJson = runAgenticLoop(fallbackMessages, model, workspace, workspacePort, false, maxIterations);
+                List<Map<String, Object>> currentMessages = messages;
+                if (mode == ResponseMode.PROMPT_ONLY) {
+                    currentMessages = new ArrayList<>(messages);
+                    currentMessages.get(0).put("content", getFallbackSystemPrompt(systemPrompt));
+                }
+                rawResultJson = runAgenticLoop(currentMessages, model, workspace, workspacePort, mode, maxIterations);
+                if (rawResultJson != null && !rawResultJson.isBlank()) {
                     success = true;
                     break;
-                } catch (Exception e) {
-                    System.err.println("Fallback refinement completion also failed: " + e.getMessage());
                 }
+            } catch (Exception e) {
+                System.err.println("[AI Refinement Pipeline] Mode " + mode + " failed: " + e.getMessage());
             }
         }
 
@@ -567,5 +535,27 @@ public class OpenAiAdapter implements AiAgentPort {
         }
 
         return parseAnalysisResult(rawResultJson);
+    }
+
+    private String getEffectiveBaseUrl() {
+        String envBaseUrl = System.getenv("PIKILAND_AI_BASE_URL");
+        if (envBaseUrl == null || envBaseUrl.isBlank()) {
+            envBaseUrl = System.getenv("OPENAI_BASE_URL");
+        }
+        if (envBaseUrl == null || envBaseUrl.isBlank()) {
+            envBaseUrl = System.getProperty("app.ai.base-url");
+        }
+        if (envBaseUrl != null && !envBaseUrl.isBlank()) {
+            return envBaseUrl;
+        }
+        return this.baseUrl;
+    }
+
+    private String getEffectiveApiKey() {
+        String envKey = System.getenv("OPENAI_API_KEY");
+        if (envKey != null && !envKey.isBlank()) {
+            return envKey;
+        }
+        return this.apiKey;
     }
 }

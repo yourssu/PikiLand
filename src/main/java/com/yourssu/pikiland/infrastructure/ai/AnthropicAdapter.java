@@ -36,7 +36,10 @@ public class AnthropicAdapter implements AiAgentPort {
         factory.setConnectTimeout(10000);
         factory.setReadTimeout(60000);
         this.restTemplate = new RestTemplate(factory);
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = new ObjectMapper()
+                .configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_COMMENTS, true)
+                .configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true)
+                .configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
     }
 
     @Override
@@ -108,11 +111,12 @@ public class AnthropicAdapter implements AiAgentPort {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("x-api-key", apiKey);
+            headers.set("x-api-key", getEffectiveApiKey());
             headers.set("anthropic-version", "2023-06-01");
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(baseUrl + "/messages", entity, String.class);
+            String url = getEffectiveBaseUrl() + "/messages";
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
             if (response.getStatusCode() != HttpStatus.OK) {
                 throw new RuntimeException("Anthropic API Call failed: " + response.getStatusCode() + " - " + response.getBody());
@@ -226,7 +230,26 @@ public class AnthropicAdapter implements AiAgentPort {
                 userMsg.put("content", toolResponseBlocks);
                 messages.add(userMsg);
             } else {
-                // No tool call returned. We must instruct Claude to submit the analysis via the tool.
+                // No tool call returned. Attempt Text Fallback from Assistant response before requesting tool invocation.
+                StringBuilder textBuf = new StringBuilder();
+                if (contentArray.isArray()) {
+                    for (JsonNode block : contentArray) {
+                        if ("text".equals(block.path("type").asText())) {
+                            textBuf.append(block.path("text").asText()).append("\n");
+                        }
+                    }
+                }
+                String textOutput = textBuf.toString().trim();
+
+                if (!textOutput.isBlank() && textOutput.contains("{") && textOutput.contains("}")) {
+                    try {
+                        System.out.println("   [Anthropic] Assistant returned text instead of tool invocation. Attempting Prompt-based Text Fallback...");
+                        return parseTextFallback(textOutput);
+                    } catch (Exception ex) {
+                        System.err.println("   [Anthropic] Text fallback parsing failed: " + ex.getMessage());
+                    }
+                }
+
                 System.out.println("   [Anthropic] Assistant returned text but did not call submit_analysis. Requesting tool invocation...");
                 Map<String, Object> promptMsg = new HashMap<>();
                 promptMsg.put("role", "user");
@@ -234,6 +257,56 @@ public class AnthropicAdapter implements AiAgentPort {
                 messages.add(promptMsg);
             }
         }
+    }
+
+    private AiAnalysisResult parseTextFallback(String rawText) throws Exception {
+        String jsonStr = rawText.trim();
+        if (jsonStr.startsWith("```")) {
+            int firstNewline = jsonStr.indexOf('\n');
+            int lastBackticks = jsonStr.lastIndexOf("```");
+            if (firstNewline != -1 && lastBackticks > firstNewline) {
+                jsonStr = jsonStr.substring(firstNewline + 1, lastBackticks).trim();
+            }
+        }
+        if (!(jsonStr.startsWith("{") && jsonStr.endsWith("}"))) {
+            int firstBrace = jsonStr.indexOf("{");
+            int lastBrace = jsonStr.lastIndexOf("}");
+            if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+                jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+            }
+        }
+        JsonNode candidateNode = objectMapper.readTree(jsonStr);
+
+        boolean isConfident = candidateNode.path("is_confident").asBoolean(true);
+        String summary = candidateNode.path("summary").asText("");
+        String impact = candidateNode.path("impact").asText("");
+        String causeDescription = candidateNode.path("cause_description").asText("");
+        boolean prNeeded = candidateNode.path("pr_needed").asBoolean(false);
+
+        List<PrCandidate> prCandidates = new ArrayList<>();
+        JsonNode prCandidatesNode = candidateNode.path("pr_candidates");
+        if (prCandidatesNode.isArray()) {
+            for (JsonNode cand : prCandidatesNode) {
+                List<PatchInstruction> patches = new ArrayList<>();
+                JsonNode patchInstructionsNode = cand.path("patch_instructions");
+                if (patchInstructionsNode.isArray()) {
+                    for (JsonNode inst : patchInstructionsNode) {
+                        patches.add(new PatchInstruction(
+                                inst.path("file_path").asText(),
+                                inst.path("old_code").asText(),
+                                inst.path("new_code").asText()
+                        ));
+                    }
+                }
+                prCandidates.add(new PrCandidate(
+                        cand.path("patch_summary").asText(),
+                        patches,
+                        cand.path("pr_title").asText(),
+                        cand.path("pr_body").asText()
+                ));
+            }
+        }
+        return new AiAnalysisResult(isConfident, summary, impact, causeDescription, prNeeded, prCandidates);
     }
 
     private List<Map<String, Object>> getToolsDefinitions() {
@@ -402,5 +475,27 @@ public class AnthropicAdapter implements AiAgentPort {
             e.printStackTrace();
             return new AiAnalysisResult(false, "⚠️ Anthropic AI refinement failed. Error: " + e.getMessage(), "오류 발생", "", false, Collections.emptyList());
         }
+    }
+
+    private String getEffectiveBaseUrl() {
+        String envBaseUrl = System.getenv("PIKILAND_AI_BASE_URL");
+        if (envBaseUrl == null || envBaseUrl.isBlank()) {
+            envBaseUrl = System.getenv("ANTHROPIC_BASE_URL");
+        }
+        if (envBaseUrl == null || envBaseUrl.isBlank()) {
+            envBaseUrl = System.getProperty("app.anthropic.base-url");
+        }
+        if (envBaseUrl != null && !envBaseUrl.isBlank()) {
+            return envBaseUrl;
+        }
+        return this.baseUrl;
+    }
+
+    private String getEffectiveApiKey() {
+        String envKey = System.getenv("ANTHROPIC_API_KEY");
+        if (envKey != null && !envKey.isBlank()) {
+            return envKey;
+        }
+        return this.apiKey;
     }
 }

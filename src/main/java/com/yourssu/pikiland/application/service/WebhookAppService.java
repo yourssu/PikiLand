@@ -66,11 +66,11 @@ public class WebhookAppService {
         }
     }
 
-    public void handleEvent(String event, String payload, String signature) {
+    public boolean handleEvent(String event, String payload, String signature) {
         // --- Security Gate: reject requests that fail signature verification ---
         if (!isTrustedRequest(payload, signature)) {
             System.err.println("[Webhook] REJECTED — signature verification failed. Possible spoofed request.");
-            return;
+            return false;
         }
 
         try {
@@ -80,7 +80,7 @@ public class WebhookAppService {
             long installationId = rootNode.path("installation").path("id").asLong();
             if (installationId == 0) {
                 System.out.println("Skipping webhook event: No installation metadata found.");
-                return;
+                return true;
             }
 
             String repoFullName = rootNode.path("repository").path("full_name").asText();
@@ -97,7 +97,7 @@ public class WebhookAppService {
 
                 if (isPikilandSelfWorkflow(workflowPath, workflowName)) {
                     System.out.println("Skipping workflow_run event for PikiLand self-healing workflow to prevent infinite loop. Run ID: " + runId + ", Name: " + workflowName + ", Path: " + workflowPath);
-                    return;
+                    return true;
                 }
 
                 if ("completed".equals(action) && "failure".equals(conclusion)) {
@@ -115,8 +115,10 @@ public class WebhookAppService {
                     selfHealingAppService.runSelfHealing(repoFullName, issueBody, "issues", issueNumber, installationId, defaultBranch, defaultBranch);
                 }
             }
+            return true;
         } catch (Exception e) {
             System.err.println("Failed to parse webhook payload: " + e.getMessage());
+            return true;
         }
     }
 

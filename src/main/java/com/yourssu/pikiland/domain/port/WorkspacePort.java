@@ -10,7 +10,7 @@ public interface WorkspacePort {
     String listDirectory(Path workspace, String relativePath);
     String readFile(Path workspace, String relativePath);
     String grepInFile(Path workspace, String relativePath, String query);
-    void applyPatches(Path workspace, List<PatchInstruction> patches);
+    boolean applyPatches(Path workspace, List<PatchInstruction> patches);
     void commitAndPush(Path workspace, String branchName, String commitMsg, String token, String repo);
     void resetToCleanState(Path workspace, String baseBranch);
     String getCurrentBranch(Path workspace);

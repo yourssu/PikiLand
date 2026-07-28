@@ -20,7 +20,10 @@ public class WebhookController {
             @RequestHeader("X-GitHub-Event") String event,
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature) {
         
-        webhookAppService.handleEvent(event, payload, signature);
+        boolean trusted = webhookAppService.handleEvent(event, payload, signature);
+        if (!trusted) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body("Invalid signature");
+        }
         return ResponseEntity.ok("Accepted");
     }
 }

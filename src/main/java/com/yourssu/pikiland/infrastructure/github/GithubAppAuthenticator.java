@@ -210,16 +210,33 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 throw new RuntimeException("Unexpected response from GitHub logs endpoint: " + initialResponse.getStatusCode());
             }
 
-            // Step 3: unzip and concatenate all .txt log files
+            // Step 3: unzip and concatenate all .txt log files with Zip Bomb protection
             StringBuilder logBuilder = new StringBuilder();
+            long totalBytes = 0;
+            int entryCount = 0;
+            long maxBytes = 50 * 1024 * 1024; // 50MB
+            int maxEntries = 500;
+
             try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
                 ZipEntry entry;
                 while ((entry = zis.getNextEntry()) != null) {
+                    entryCount++;
+                    if (entryCount > maxEntries) {
+                        System.err.println("[Zip Guard] Exceeded max allowed entries limit (" + maxEntries + "). Truncating log unzipping.");
+                        break;
+                    }
+
                     if (entry.getName().endsWith(".txt") || !entry.getName().contains("/")) {
                         BufferedReader br = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));
                         String line;
                         logBuilder.append("=== File: ").append(entry.getName()).append(" ===\n");
                         while ((line = br.readLine()) != null) {
+                            totalBytes += line.getBytes(StandardCharsets.UTF_8).length;
+                            if (totalBytes > maxBytes) {
+                                System.err.println("[Zip Guard] Exceeded max allowed size limit (50MB). Truncating log unzipping.");
+                                logBuilder.append("\n... [Log Truncated - Reached maximum allowed 50MB uncompressed limit] ...\n");
+                                return logBuilder.toString();
+                            }
                             logBuilder.append(line).append("\n");
                         }
                         logBuilder.append("\n");
@@ -231,6 +248,28 @@ public class GithubAppAuthenticator implements GithubAuthPort {
         } catch (Exception e) {
             throw new RuntimeException("Failed to download workflow logs for run " + runId, e);
         }
+    }
+
+    @Override
+    public String fetchIssueBody(String repo, String issueNumber, String token) {
+        String url = "https://api.github.com/repos/" + repo + "/issues/" + issueNumber;
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            if (token != null && !token.isBlank()) {
+                headers.set("Authorization", "Bearer " + token);
+            }
+            headers.set("Accept", "application/vnd.github+json");
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                String body = (String) response.getBody().get("body");
+                String title = (String) response.getBody().get("title");
+                return "Issue #" + issueNumber + " Title: " + (title != null ? title : "") + "\n\n" + (body != null ? body : "");
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to fetch issue body for issue #" + issueNumber + " in " + repo + ": " + e.getMessage());
+        }
+        return "";
     }
 
     @Override
@@ -285,8 +324,8 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                         "        description: 'Original event type'\n" +
                         "        required: true\n" +
                         "      log_content:\n" +
-                        "        description: 'Truncated error log or issue body'\n" +
-                        "        required: true\n" +
+                        "        description: 'Truncated error log or issue body (Optional - CLI downloads via run_id if omitted)'\n" +
+                        "        required: false\n" +
                         "      run_id:\n" +
                         "        description: 'Original run ID or issue number'\n" +
                         "        required: true\n" +
@@ -316,27 +355,33 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                         "          ref: ${{ github.event.inputs.target_branch }}\n" +
                         "          fetch-depth: 0\n" +
                         "\n" +
-                        "      - name: Run PikiLand CLI\n" +
+                        "      - name: Set up Java 21\n" +
+                        "        uses: actions/setup-java@v4\n" +
+                        "        with:\n" +
+                        "          java-version: '21'\n" +
+                        "          distribution: 'temurin'\n" +
+                        "\n" +
+                        "      - name: Run PikiLand CLI (Native Execution)\n" +
+                        "        env:\n" +
+                        "          PIKILAND_CLI: \"true\"\n" +
+                        "          PIKILAND_EVENT_TYPE: \"${{ github.event.inputs.event_type }}\"\n" +
+                        "          PIKILAND_LOG_CONTENT: \"${{ github.event.inputs.log_content }}\"\n" +
+                        "          PIKILAND_RUN_ID: \"${{ github.event.inputs.run_id }}\"\n" +
+                        "          PIKILAND_TARGET_BRANCH: \"${{ github.event.inputs.target_branch }}\"\n" +
+                        "          PIKILAND_WORKSPACE_PATH: \".\"\n" +
+                        "          PIKILAND_HARNESS_CMD: \"${{ github.event.inputs.harness_cmd }}\"\n" +
+                        "          GITHUB_TOKEN: \"${{ secrets.GITHUB_TOKEN }}\"\n" +
+                        "          GITHUB_REPOSITORY: \"${{ github.repository }}\"\n" +
+                        "          SLACK_WEBHOOK_URL: \"${{ github.event.inputs.slack_webhook_url }}\"\n" +
+                        "          AI_MODEL: \"${{ github.event.inputs.ai_model }}\"\n" +
+                        "          PIKILAND_AI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
+                        "          OPENAI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
+                        "          ANTHROPIC_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
+                        "          OPENAI_API_KEY: \"${{ secrets.OPENAI_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
+                        "          ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
                         "        run: |\n" +
-                        "          docker run --rm \\\n" +
-                        "            -v ${{ github.workspace }}:/workspace \\\n" +
-                        "            -e PIKILAND_CLI=true \\\n" +
-                        "            -e PIKILAND_EVENT_TYPE=\"${{ github.event.inputs.event_type }}\" \\\n" +
-                        "            -e PIKILAND_LOG_CONTENT=\"${{ github.event.inputs.log_content }}\" \\\n" +
-                        "            -e PIKILAND_RUN_ID=\"${{ github.event.inputs.run_id }}\" \\\n" +
-                        "            -e PIKILAND_TARGET_BRANCH=\"${{ github.event.inputs.target_branch }}\" \\\n" +
-                        "            -e PIKILAND_WORKSPACE_PATH=\"/workspace\" \\\n" +
-                        "            -e PIKILAND_HARNESS_CMD=\"${{ github.event.inputs.harness_cmd }}\" \\\n" +
-                        "            -e GITHUB_TOKEN=\"${{ secrets.GITHUB_TOKEN }}\" \\\n" +
-                        "            -e GITHUB_REPOSITORY=\"${{ github.repository }}\" \\\n" +
-                        "            -e SLACK_WEBHOOK_URL=\"${{ github.event.inputs.slack_webhook_url }}\" \\\n" +
-                        "            -e AI_MODEL=\"${{ github.event.inputs.ai_model }}\" \\\n" +
-                        "            -e PIKILAND_AI_BASE_URL=\"${{ github.event.inputs.ai_base_url }}\" \\\n" +
-                        "            -e OPENAI_BASE_URL=\"${{ github.event.inputs.ai_base_url }}\" \\\n" +
-                        "            -e ANTHROPIC_BASE_URL=\"${{ github.event.inputs.ai_base_url }}\" \\\n" +
-                        "            -e OPENAI_API_KEY=\"${{ secrets.OPENAI_API_KEY }}\" \\\n" +
-                        "            -e ANTHROPIC_API_KEY=\"${{ secrets.ANTHROPIC_API_KEY }}\" \\\n" +
-                        "            ghcr.io/yourssu/pikiland:latest\n";
+                        "          chmod +x gradlew\n" +
+                        "          ./gradlew bootRun --args=\"--cli\"\n";
 
                 String base64Content = Base64.getEncoder().encodeToString(yaml.getBytes(StandardCharsets.UTF_8));
 
