@@ -356,44 +356,11 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             } catch (org.springframework.web.client.HttpClientErrorException.UnprocessableEntity e) {
                 String respBody = e.getResponseBodyAsString();
                 System.err.println("[GitHub Dispatch] 422 Unprocessable Entity for repo " + repo + ": " + respBody);
-                if (respBody != null && respBody.contains("Unexpected inputs provided:") && inputs != null && !inputs.isEmpty()) {
-                    System.out.println("[GitHub Dispatch Fallback] Stripping unsupported inputs and retrying workflow dispatch for repo " + repo + "...");
-                    Map<String, Object> sanitizedInputs = sanitizeInputsFromResponseBody(inputs, respBody);
-                    if (sanitizedInputs.size() < inputs.size()) {
-                        inputs = sanitizedInputs;
-                        continue;
-                    }
-                }
-                throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo + " (422 Unprocessable Entity)", e);
+                throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo + " (422 Unprocessable Entity: " + respBody + ")", e);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo, e);
             }
         }
-    }
-
-    private Map<String, Object> sanitizeInputsFromResponseBody(Map<String, Object> originalInputs, String responseBody) {
-        Map<String, Object> copy = new HashMap<>(originalInputs);
-        try {
-            int idx = responseBody.indexOf("Unexpected inputs provided:");
-            if (idx != -1) {
-                int startBracket = responseBody.indexOf("[", idx);
-                int endBracket = responseBody.indexOf("]", startBracket);
-                if (startBracket != -1 && endBracket != -1) {
-                    String rawKeysStr = responseBody.substring(startBracket + 1, endBracket);
-                    String[] keys = rawKeysStr.split(",");
-                    for (String key : keys) {
-                        String cleanKey = key.replaceAll("[^a-zA-Z0-9_-]", "").trim();
-                        if (!cleanKey.isEmpty()) {
-                            System.out.println("[GitHub Dispatch Fallback] Removing unsupported input key: '" + cleanKey + "'");
-                            copy.remove(cleanKey);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("[GitHub Dispatch Fallback] Failed to parse 422 response body: " + e.getMessage());
-        }
-        return copy;
     }
 
     @Override
@@ -416,12 +383,15 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                     String content = (String) body.get("content");
                     String decodedContent = content != null ? new String(Base64.getMimeDecoder().decode(content.replaceAll("\\s+", ""))) : "";
 
-                    if (decodedContent.contains("ralph_max_retries:") && decodedContent.contains("pikiland-engine") && decodedContent.contains("spring.profiles.active=local")) {
-                        System.out.println("[GitHub] pikiland.yml already up-to-date in " + repo);
+                    String currentHash = computeSha256(decodedContent.trim());
+                    String targetHash = computeSha256(yaml.trim());
+
+                    if (currentHash.equals(targetHash)) {
+                        System.out.println("[GitHub] pikiland.yml already up-to-date (SHA-256 match) in " + repo);
                         return;
                     }
 
-                    System.out.println("[GitHub] Outdated pikiland.yml detected in " + repo + ". Updating to latest workflow template...");
+                    System.out.println("[GitHub] Outdated pikiland.yml detected (SHA-256 mismatch) in " + repo + ". Updating to latest workflow template...");
                     updateWorkflowFile(repo, path, sha, yaml, token, defaultBranch);
                     return;
                 }
@@ -431,6 +401,22 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to check/install workflow file in " + repo, e);
+        }
+    }
+
+    private String computeSha256(String text) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(text.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("SHA-256 computation failed", e);
         }
     }
 
