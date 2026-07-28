@@ -206,13 +206,23 @@ public class DashboardAppService {
         RepoSettings settings = repoSettingsRepository.findById(fullName)
                 .orElseGet(() -> new RepoSettings(fullName, false, "", "", ""));
         
+        String inferenceMsg = null;
         if (inferredCmd != null && !inferredCmd.isBlank()) {
             settings.setInferredHarness(inferredCmd, HarnessSource.AUTO_INFERRED);
-            repoSettingsRepository.save(settings);
+        } else {
+            settings.setInferredHarness(null, HarnessSource.NONE);
+            boolean hasAiKey = System.getenv("OPENAI_API_KEY") != null || System.getenv("ANTHROPIC_API_KEY") != null;
+            boolean hasBaseUrl = settings.getCustomBaseUrl() != null && !settings.getCustomBaseUrl().isBlank();
+            if (!hasAiKey || !hasBaseUrl) {
+                inferenceMsg = "⚠️ Static file inference failed. AI API Key or Custom Base URL is missing, so LLM inference was skipped (Static-only executed).";
+            } else {
+                inferenceMsg = "⚠️ Could not infer test command from static repository files or LLM analysis.";
+            }
         }
+        repoSettingsRepository.save(settings);
 
         boolean hasAppInstalled = githubAuthPort != null && githubAuthPort.isAppInstalledForRepo(fullName);
-        return new RepoSettingsDto(
+        RepoSettingsDto dto = new RepoSettingsDto(
                 settings.getRepositoryFullName(),
                 settings.isActive(),
                 settings.getSlackWebhookUrl(),
@@ -225,16 +235,31 @@ public class DashboardAppService {
                 settings.getRalphMaxRetries(),
                 hasAppInstalled
         );
+        dto.setInferenceMessage(inferenceMsg);
+        return dto;
     }
 
     public List<String> fetchRemoteRepoFilenames(String repoFullName, String accessToken) {
         List<String> filenames = new ArrayList<>();
-        if (accessToken == null || accessToken.isBlank() || repoFullName == null || !repoFullName.contains("/")) {
+        if (repoFullName == null || !repoFullName.contains("/")) {
             return filenames;
         }
+
+        String effectiveToken = accessToken;
+        if (effectiveToken == null || effectiveToken.isBlank()) {
+            if (githubAuthPort != null) {
+                effectiveToken = githubAuthPort.getInstallationAccessTokenForRepo(repoFullName);
+            }
+        }
+
+        if (effectiveToken == null || effectiveToken.isBlank()) {
+            System.err.println("[DashboardAppService] No OAuth or App token available to fetch contents for " + repoFullName);
+            return filenames;
+        }
+
         try {
             HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + accessToken);
+            headers.set("Authorization", "Bearer " + effectiveToken);
             headers.set("Accept", "application/vnd.github+json");
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             String url = "https://api.github.com/repos/" + repoFullName + "/contents";

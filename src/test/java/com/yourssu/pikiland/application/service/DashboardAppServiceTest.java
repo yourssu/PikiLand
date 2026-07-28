@@ -68,7 +68,7 @@ class DashboardAppServiceTest {
         RepoSettingsDto dto = dashboardAppService.reInferHarness(repo, "token");
 
         assertNotNull(dto);
-        assertNotEquals("./gradlew test", dto.getInferredHarnessCmd(), "Should not hardcode ./gradlew test on empty file list");
+        assertNull(dto.getInferredHarnessCmd(), "Should reset inferred harness command to null on empty file list");
         assertFalse(dto.isHasAppInstalled());
     }
 }

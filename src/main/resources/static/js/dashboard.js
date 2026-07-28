@@ -211,15 +211,24 @@ function inferHarness(repoFullName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast("Test command inferred!");
-            setTimeout(() => window.location.reload(), 1000);
+            return response.json();
         } else {
-            showToast("Failed to infer test command.", true);
+            throw new Error("Failed to infer test command");
         }
+    })
+    .then(updatedDto => {
+        if (updatedDto.inferredHarnessCmd && updatedDto.inferredHarnessCmd.trim().length > 0) {
+            showToast("Test command inferred: " + updatedDto.inferredHarnessCmd);
+        } else if (updatedDto.inferenceMessage) {
+            showToast(updatedDto.inferenceMessage, true);
+        } else {
+            showToast("No test command inferred from repository files.", true);
+        }
+        updateRepoUiFromDto(updatedDto);
     })
     .catch(error => {
         console.error('Error inferring harness:', error);
-        showToast("Network error occurred.", true);
+        showToast("Failed to infer test command.", true);
     });
 }
 

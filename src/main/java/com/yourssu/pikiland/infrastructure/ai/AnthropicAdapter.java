@@ -479,16 +479,10 @@ public class AnthropicAdapter implements AiAgentPort {
 
     private String getEffectiveBaseUrl() {
         String envBaseUrl = System.getenv("PIKILAND_AI_BASE_URL");
-        if (envBaseUrl == null || envBaseUrl.isBlank()) {
-            envBaseUrl = System.getenv("ANTHROPIC_BASE_URL");
-        }
-        if (envBaseUrl == null || envBaseUrl.isBlank()) {
-            envBaseUrl = System.getProperty("app.anthropic.base-url");
-        }
         if (envBaseUrl != null && !envBaseUrl.isBlank()) {
             return envBaseUrl;
         }
-        return this.baseUrl;
+        return (this.baseUrl != null && !this.baseUrl.isBlank()) ? this.baseUrl : "https://api.anthropic.com/v1";
     }
 
     private String getEffectiveApiKey() {

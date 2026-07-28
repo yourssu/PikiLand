@@ -137,7 +137,7 @@
 
                         <div class="form-group">
                             <label th:for="|harness-${repo.fullName}|">Harness Verification Command</label>
-                            <input type="text" th:id="|harness-${repo.fullName}|" th:value="${repo.harnessCmd}" placeholder="./gradlew test" />
+                            <input type="text" th:id="|harness-${repo.fullName}|" th:value="${repo.harnessCmd}" placeholder="e.g. ./gradlew test, npm test, pytest" />
                         </div>
 
                         <div class="button-group" style="display: flex; gap: 8px;">

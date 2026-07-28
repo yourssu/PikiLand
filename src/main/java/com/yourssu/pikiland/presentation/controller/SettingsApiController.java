@@ -89,7 +89,8 @@ public class SettingsApiController {
     @PostMapping("/harness/infer")
     public ResponseEntity<RepoSettingsDto> inferHarness(
             @RequestBody RepoSettingsDto dto,
-            @AuthenticationPrincipal OAuth2User oauth2User) {
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient("github") org.springframework.security.oauth2.client.OAuth2AuthorizedClient authorizedClient) {
         if (!isDebug) {
             if (oauth2User == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -98,7 +99,9 @@ public class SettingsApiController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
         }
-        RepoSettingsDto result = dashboardAppService.reInferHarness(dto.getFullName());
+        String token = (authorizedClient != null && authorizedClient.getAccessToken() != null) ?
+                authorizedClient.getAccessToken().getTokenValue() : null;
+        RepoSettingsDto result = dashboardAppService.reInferHarness(dto.getFullName(), token);
         return ResponseEntity.ok(result);
     }
 

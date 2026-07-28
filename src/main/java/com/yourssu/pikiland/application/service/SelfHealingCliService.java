@@ -120,11 +120,8 @@ public class SelfHealingCliService {
             System.out.println("[Harness] Bug reproduction SUCCEEDED: Tests failed as expected on buggy workspace. Proceeding to patch generation.");
         }
 
-        // Custom AI Base URL injection if provided (Handled in AI adapters via environment/property getters)
+        // Custom AI Base URL injection if provided
         String customBaseUrl = getEnvOrProperty("PIKILAND_AI_BASE_URL");
-        if (customBaseUrl == null || customBaseUrl.isBlank()) {
-            customBaseUrl = getEnvOrProperty("OPENAI_BASE_URL");
-        }
         if (customBaseUrl != null && !customBaseUrl.isBlank()) {
             System.out.println("[AI Gateway] Using Custom Base URL: " + customBaseUrl);
         }

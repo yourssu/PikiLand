@@ -426,8 +426,6 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                         "          SLACK_WEBHOOK_URL: \"${{ github.event.inputs.slack_webhook_url }}\"\n" +
                         "          AI_MODEL: \"${{ github.event.inputs.ai_model }}\"\n" +
                         "          PIKILAND_AI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
-                        "          OPENAI_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
-                        "          ANTHROPIC_BASE_URL: \"${{ github.event.inputs.ai_base_url }}\"\n" +
                         "          OPENAI_API_KEY: \"${{ secrets.OPENAI_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
                         "          ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
                         "        run: |\n" +
@@ -519,5 +517,30 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             System.err.println("[GitHubAuth] Failed to batch fetch user app installations: " + e.getMessage());
         }
         return installedRepos;
+    }
+
+    @Override
+    public String getInstallationAccessTokenForRepo(String repo) {
+        if (repo == null || !repo.contains("/")) return null;
+        try {
+            String jwt = generateJwt();
+            String url = "https://api.github.com/repos/" + repo + "/installation";
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + jwt);
+            headers.set("Accept", "application/vnd.github+json");
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Object idObj = response.getBody().get("id");
+                if (idObj != null) {
+                    long installationId = ((Number) idObj).longValue();
+                    return getInstallationAccessToken(installationId);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[GitHubAuth] Failed to fetch installation token for " + repo + ": " + e.getMessage());
+        }
+        return null;
     }
 }

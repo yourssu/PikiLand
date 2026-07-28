@@ -12,6 +12,7 @@ public class RepoSettingsDto {
     private String harnessSource;
     private int ralphMaxRetries;
     private boolean hasAppInstalled;
+    private String inferenceMessage;
 
     public RepoSettingsDto() {}
 
@@ -125,6 +126,14 @@ public class RepoSettingsDto {
 
     public void setHasAppInstalled(boolean hasAppInstalled) {
         this.hasAppInstalled = hasAppInstalled;
+    }
+
+    public String getInferenceMessage() {
+        return inferenceMessage;
+    }
+
+    public void setInferenceMessage(String inferenceMessage) {
+        this.inferenceMessage = inferenceMessage;
     }
 }
 

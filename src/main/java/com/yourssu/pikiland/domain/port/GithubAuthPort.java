@@ -11,4 +11,5 @@ public interface GithubAuthPort {
     void installWorkflowIfMissing(String repo, String token, String defaultBranch);
     boolean isAppInstalledForRepo(String repo);
     java.util.Set<String> getInstalledRepositoryFullNames(String userAccessToken);
+    String getInstallationAccessTokenForRepo(String repo);
 }
