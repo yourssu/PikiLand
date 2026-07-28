@@ -32,19 +32,22 @@ public class SelfHealingCliService {
     private final NotifierPort notifierPort;
     private final GithubAuthPort githubAuthPort;
     private final LogTruncator logTruncator;
+    private final HarnessInferenceService harnessInferenceService;
 
     public SelfHealingCliService(WorkspacePort workspacePort,
                                   @Qualifier("openAiAdapter") AiAgentPort openAiAdapter,
                                   @Qualifier("anthropicAdapter") AiAgentPort anthropicAdapter,
                                   NotifierPort notifierPort,
                                   GithubAuthPort githubAuthPort,
-                                  LogTruncator logTruncator) {
+                                  LogTruncator logTruncator,
+                                  HarnessInferenceService harnessInferenceService) {
         this.workspacePort = workspacePort;
         this.openAiAdapter = openAiAdapter;
         this.anthropicAdapter = anthropicAdapter;
         this.notifierPort = notifierPort;
         this.githubAuthPort = githubAuthPort;
         this.logTruncator = logTruncator;
+        this.harnessInferenceService = harnessInferenceService;
     }
 
     public void run() {
@@ -109,6 +112,13 @@ public class SelfHealingCliService {
 
         // --- 2. Pre-patch Harness Check (Reproduction Gate) ---
         String harnessCmd = getEnvOrProperty("PIKILAND_HARNESS_CMD");
+        if ((harnessCmd == null || harnessCmd.isBlank()) && harnessInferenceService != null) {
+            harnessCmd = harnessInferenceService.inferHarnessCmdFromWorkspace(workspace);
+            if (harnessCmd != null && !harnessCmd.isBlank()) {
+                System.out.println("[Harness] Smart runtime-inferred harness command for workspace: " + harnessCmd);
+            }
+        }
+
         if (harnessCmd != null && !harnessCmd.isBlank()) {
             System.out.println("[Harness] Executing pre-patch harness command to reproduce the issue: " + harnessCmd);
             HarnessResult hResBefore = workspacePort.runHarness(workspace, harnessCmd);

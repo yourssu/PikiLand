@@ -23,6 +23,7 @@ class SelfHealingCliServiceTest {
     private NotifierPort notifierPort;
     private GithubAuthPort githubAuthPort;
     private LogTruncator logTruncator;
+    private HarnessInferenceService harnessInferenceService;
     private SelfHealingCliService selfHealingCliService;
 
     @BeforeEach
@@ -33,9 +34,10 @@ class SelfHealingCliServiceTest {
         notifierPort = Mockito.mock(NotifierPort.class);
         githubAuthPort = Mockito.mock(GithubAuthPort.class);
         logTruncator = Mockito.mock(LogTruncator.class);
+        harnessInferenceService = Mockito.mock(HarnessInferenceService.class);
 
         selfHealingCliService = new SelfHealingCliService(
-                workspacePort, openAiAdapter, anthropicAdapter, notifierPort, githubAuthPort, logTruncator
+                workspacePort, openAiAdapter, anthropicAdapter, notifierPort, githubAuthPort, logTruncator, harnessInferenceService
         );
     }
 

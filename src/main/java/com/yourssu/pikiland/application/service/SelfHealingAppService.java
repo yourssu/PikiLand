@@ -61,7 +61,10 @@ public class SelfHealingAppService {
             inputs.put("slack_webhook_url", settings.getSlackWebhookUrl() != null ? settings.getSlackWebhookUrl() : "");
             inputs.put("ai_model", settings.getCustomModel() != null ? settings.getCustomModel() : "");
             inputs.put("ai_base_url", settings.getCustomBaseUrl() != null ? settings.getCustomBaseUrl() : "");
-            inputs.put("harness_cmd", settings.getHarnessCmd() != null ? settings.getHarnessCmd() : "");
+            String effectiveHarnessCmd = (settings.getHarnessCmd() != null && !settings.getHarnessCmd().isBlank())
+                    ? settings.getHarnessCmd()
+                    : (settings.getInferredHarnessCmd() != null ? settings.getInferredHarnessCmd() : "");
+            inputs.put("harness_cmd", effectiveHarnessCmd);
             inputs.put("ralph_max_retries", String.valueOf(settings.getRalphMaxRetries() > 0 ? settings.getRalphMaxRetries() : 3));
 
 

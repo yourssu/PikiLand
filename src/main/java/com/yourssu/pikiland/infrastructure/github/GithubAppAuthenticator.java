@@ -326,21 +326,36 @@ public class GithubAppAuthenticator implements GithubAuthPort {
     @Override
     public void triggerWorkflowDispatch(String repo, String workflowId, String ref, Map<String, Object> inputs, String token) {
         String url = "https://api.github.com/repos/" + repo + "/actions/workflows/" + workflowId + "/dispatches";
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + token);
-            headers.set("Accept", "application/vnd.github+json");
-            headers.setContentType(MediaType.APPLICATION_JSON);
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", "Bearer " + token);
+                headers.set("Accept", "application/vnd.github+json");
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("ref", ref);
-            payload.put("inputs", inputs);
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("ref", ref);
+                payload.put("inputs", inputs);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-            restTemplate.postForEntity(url, entity, Void.class);
-            System.out.println("Successfully triggered workflow dispatch '" + workflowId + "' on ref " + ref + " for repo " + repo);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo, e);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                restTemplate.postForEntity(url, entity, Void.class);
+                System.out.println("Successfully triggered workflow dispatch '" + workflowId + "' on ref " + ref + " for repo " + repo);
+                return;
+            } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+                if (attempt < maxRetries) {
+                    System.out.println("[GitHub Dispatch] Workflow '" + workflowId + "' not yet indexed (404). Retrying in 2 seconds (Attempt " + attempt + "/" + maxRetries + ")...");
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo + " after " + maxRetries + " attempts", e);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to trigger Workflow Dispatch for repo " + repo, e);
+            }
         }
     }
 
@@ -395,6 +410,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                         "      harness_cmd:\n" +
                         "        description: 'Command to run harness verification (e.g. ./gradlew test)'\n" +
                         "        required: false\n" +
+                        "      ralph_max_retries:\n" +
+                        "        description: 'Ralph Loop max retries cap'\n" +
+                        "        required: false\n" +
                         "\n" +
                         "jobs:\n" +
                         "  pikiland-patch:\n" +
@@ -421,6 +439,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                         "          PIKILAND_TARGET_BRANCH: \"${{ github.event.inputs.target_branch }}\"\n" +
                         "          PIKILAND_WORKSPACE_PATH: \".\"\n" +
                         "          PIKILAND_HARNESS_CMD: \"${{ github.event.inputs.harness_cmd }}\"\n" +
+                        "          PIKILAND_RALPH_MAX_RETRIES: \"${{ github.event.inputs.ralph_max_retries }}\"\n" +
                         "          GITHUB_TOKEN: \"${{ secrets.GITHUB_TOKEN }}\"\n" +
                         "          GITHUB_REPOSITORY: \"${{ github.repository }}\"\n" +
                         "          SLACK_WEBHOOK_URL: \"${{ github.event.inputs.slack_webhook_url }}\"\n" +
