@@ -89,7 +89,7 @@ cp .env.example .env
 | `PIKILAND_RALPH_MAX_RETRIES` | Ralph Loop 최대 재시도 횟수 (기본값: 3) |
 | `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH` | GitHub App 인증 |
 | `GITHUB_WEBHOOK_SECRET` | 웹훅 서명 검증 |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | 대시보드 GitHub OAuth |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | 대시보드 로그인용 GitHub OAuth 인증 (최초 접속 데드락 방지) |
 | `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | 운영 PostgreSQL |
 | `DRY_RUN` | 로컬 테스트 우회 설정. 운영에서는 반드시 `false` |
 
@@ -127,16 +127,8 @@ cp .env.example .env
 일반 테스트:
 
 ```bash
-./gradlew test --tests '*ArchitectureTest' --tests '*LogTruncatorTest'
+./gradlew clean test 
 ```
-
-실제 AI Gateway API를 호출하는 Dry Run:
-
-```bash
-./gradlew cleanTest test --tests '*DryRunTest*' -i
-```
-
-Dry Run은 `OPENAI_API_KEY` 또는 `ANTHROPIC_API_KEY`를 이용해 실제 OpenAI/Anthropic API를 호출합니다. Claude Code 또는 ChatGPT 구독을 사용하는 흐름이 아닙니다.
 
 ## 문서
 

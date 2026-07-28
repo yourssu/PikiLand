@@ -147,6 +147,10 @@ PikiLand는 GitHub Actions 워크플로(`../.github/workflows/docker-build.yml`)
 # 중앙 어드민 사용자 (본인의 GitHub 사용자명)
 PIKILAND_ADMIN_USERS="your_github_username"
 
+# GitHub OAuth 부트스트랩 자격 증명 (최초 로그인 데드락 방지)
+GITHUB_CLIENT_ID="Ov23zXXXXXXXXXXXXXXX"
+GITHUB_CLIENT_SECRET="a1b2c3d4e5f6g7h8i9j0..."
+
 # GHCR 이미지 지정 (기본값: ghcr.io/yourssu/pikiland:latest)
 PIKILAND_IMAGE="ghcr.io/yourssu/pikiland:latest"
 

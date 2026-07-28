@@ -4,6 +4,7 @@ spring:
     username: ${DATABASE_USER}
     password: ${DATABASE_PASSWORD}
   jpa:
+    generate-ddl: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
@@ -13,8 +14,8 @@ spring:
       client:
         registration:
           github:
-            client-id: ${GITHUB_CLIENT_ID}
-            client-secret: ${GITHUB_CLIENT_SECRET}
+            client-id: ${GITHUB_CLIENT_ID:}
+            client-secret: ${GITHUB_CLIENT_SECRET:}
             scope:
               - read:user
               - repo
