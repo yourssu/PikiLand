@@ -34,5 +34,9 @@
             Connect with GitHub
         </a>
     </div>
+    <script>
+        const savedTheme = localStorage.getItem('pikiland-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
 </body>
 </html>

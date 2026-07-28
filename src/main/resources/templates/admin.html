@@ -16,8 +16,11 @@
             <div class="logo">🏰 PikiLand Admin</div>
             <div class="user-control">
                 <span class="username" th:text="${username}">username</span>
-                <span class="badge badge-active" style="margin-right: 8px;">ADMIN</span>
-                <a href="/dashboard" class="btn btn-secondary" style="margin-right: 8px; font-size: 0.85rem; text-decoration: none;">← Back to Dashboard</a>
+                <span class="badge badge-active" style="margin-right: 4px;">ADMIN</span>
+                <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Dark/Light Theme">
+                    <span id="theme-icon">🌙</span> <span id="theme-text">Dark Mode</span>
+                </button>
+                <a href="/dashboard" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">← Back to Dashboard</a>
                 <a href="/logout" class="btn btn-secondary btn-logout">Logout</a>
             </div>
         </header>

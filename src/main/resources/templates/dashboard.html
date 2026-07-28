@@ -16,8 +16,11 @@
             <div class="logo">🏰 PikiLand</div>
             <div class="user-control">
                 <span class="username" th:text="${username}">username</span>
-                <span class="badge badge-active" th:if="${isAdmin}" style="margin-right: 8px;">ADMIN</span>
-                <a th:if="${isAdmin}" href="/admin" class="btn btn-secondary" style="margin-right: 8px; font-size: 0.85rem; border-color: #f59e0b; color: #fbbf24; text-decoration: none;">⚙️ Admin Settings</a>
+                <span class="badge badge-active" th:if="${isAdmin}" style="margin-right: 4px;">ADMIN</span>
+                <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Dark/Light Theme">
+                    <span id="theme-icon">🌙</span> <span id="theme-text">Dark Mode</span>
+                </button>
+                <a th:if="${isAdmin}" href="/admin" class="btn btn-secondary" style="font-size: 0.85rem; border-color: #f59e0b; color: #fbbf24; text-decoration: none;">⚙️ Admin Settings</a>
                 <a href="/logout" class="btn btn-secondary btn-logout">Logout</a>
             </div>
         </header>
@@ -71,6 +74,9 @@
                 <p>Configure self-healing AI, Ralph max retries, and Slack webhook endpoints per repository.</p>
             </div>
 
+            <!-- Repository Owner Tabs Navigation Bar -->
+            <div id="repo-tabs-bar" class="repo-tabs-container"></div>
+
             <div class="repo-grid">
                 <!-- If no repos -->
                 <div th:if="${#lists.isEmpty(repos)}" class="glass-card empty-card">
@@ -78,7 +84,7 @@
                 </div>
 
                 <!-- Repository cards -->
-                <div th:each="repo : ${repos}" class="glass-card repo-card">
+                <div th:each="repo : ${repos}" class="glass-card repo-card" th:data-owner="${repo.fullName.contains('/') ? repo.fullName.split('/')[0] : 'other'}">
                     <div class="repo-meta">
                         <div>
                             <h3 class="repo-title" th:text="${repo.fullName}">owner/repo</h3>
@@ -121,7 +127,7 @@
                         </div>
 
                         <!-- Inferred Harness Banner (Always in DOM for live JS sync) -->
-                        <div th:id="|inferred-box-${repo.fullName}|" class="inferred-box" th:style="${repo.inferredHarnessCmd != null and not repo.inferredHarnessCmd.isBlank()} ? 'background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: block;' : 'background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;'">
+                        <div th:id="|inferred-box-${repo.fullName}|" class="inferred-box" th:style="${repo.harnessStatus == 'PENDING_CONFIRMATION' and repo.inferredHarnessCmd != null and not repo.inferredHarnessCmd.isBlank()} ? 'background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: block;' : 'background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;'">
                             <label style="color: #ffc107; font-weight: 600;">💡 Auto-Inferred Test Command (Pending Approval):</label>
                             <div th:id="|inferred-cmd-${repo.fullName}|" style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; margin: 6px 0;" th:text="${repo.inferredHarnessCmd}">./gradlew test</div>
                             <button type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 4px 10px;" th:data-repo="${repo.fullName}" onclick="approveHarness(this.getAttribute('data-repo'))">Approve Inferred Command</button>

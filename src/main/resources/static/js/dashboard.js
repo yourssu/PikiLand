@@ -66,7 +66,7 @@ function updateRepoUiFromDto(dto) {
     const inferredBox = document.getElementById('inferred-box-' + fullName);
     const inferredCmd = document.getElementById('inferred-cmd-' + fullName);
     if (inferredBox && inferredCmd) {
-        if (dto.inferredHarnessCmd && dto.inferredHarnessCmd.trim().length > 0) {
+        if (dto.harnessStatus === 'PENDING_CONFIRMATION' && dto.inferredHarnessCmd && dto.inferredHarnessCmd.trim().length > 0) {
             inferredCmd.textContent = dto.inferredHarnessCmd;
             inferredBox.style.display = 'block';
         } else {
@@ -191,8 +191,96 @@ function saveSystemSettings() {
     });
 }
 
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const iconEl = document.getElementById('theme-icon');
+    const textEl = document.getElementById('theme-text');
+    if (iconEl && textEl) {
+        if (theme === 'light') {
+            iconEl.textContent = '☀️';
+            textEl.textContent = 'Light Mode';
+        } else {
+            iconEl.textContent = '🌙';
+            textEl.textContent = 'Dark Mode';
+        }
+    }
+}
+
+function initTheme() {
+    const savedTheme = localStorage.getItem('pikiland-theme') || 'dark';
+    applyTheme(savedTheme);
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('pikiland-theme', newTheme);
+    applyTheme(newTheme);
+}
+
+function initRepoOwnerTabs() {
+    const tabsBar = document.getElementById('repo-tabs-bar');
+    if (!tabsBar) return;
+
+    const cards = document.querySelectorAll('.repo-card[data-owner]');
+    if (cards.length === 0) return;
+
+    const ownersMap = new Map();
+    cards.forEach(card => {
+        const owner = card.getAttribute('data-owner');
+        if (owner) {
+            ownersMap.set(owner, (ownersMap.get(owner) || 0) + 1);
+        }
+    });
+
+    tabsBar.innerHTML = '';
+
+    // "All Repositories" Tab
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'owner-tab-btn active';
+    allBtn.setAttribute('data-target-owner', 'all');
+    allBtn.innerHTML = `🌐 All Repositories <span style="opacity: 0.7; font-size: 0.8em;">(${cards.length})</span>`;
+    allBtn.onclick = () => switchOwnerTab('all');
+    tabsBar.appendChild(allBtn);
+
+    // Individual Owner Tabs
+    ownersMap.forEach((count, owner) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'owner-tab-btn';
+        btn.setAttribute('data-target-owner', owner);
+        btn.innerHTML = `📁 ${owner} <span style="opacity: 0.7; font-size: 0.8em;">(${count})</span>`;
+        btn.onclick = () => switchOwnerTab(owner);
+        tabsBar.appendChild(btn);
+    });
+}
+
+function switchOwnerTab(selectedOwner) {
+    const tabBtns = document.querySelectorAll('.owner-tab-btn');
+    tabBtns.forEach(btn => {
+        if (btn.getAttribute('data-target-owner') === selectedOwner) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    const cards = document.querySelectorAll('.repo-card[data-owner]');
+    cards.forEach(card => {
+        const cardOwner = card.getAttribute('data-owner');
+        if (selectedOwner === 'all' || cardOwner === selectedOwner) {
+            card.style.display = 'flex';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     loadSystemSettings();
+    initRepoOwnerTabs();
 });
 
 function approveHarness(repoFullName) {

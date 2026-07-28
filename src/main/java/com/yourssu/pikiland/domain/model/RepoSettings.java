@@ -53,8 +53,14 @@ public class RepoSettings {
 
     public void configureHarnessCmd(String harnessCmd) {
         this.harnessCmd = harnessCmd;
-        this.harnessStatus = (harnessCmd != null && !harnessCmd.isBlank()) ? HarnessStatus.ACTIVE : HarnessStatus.NONE;
-        this.harnessSource = HarnessSource.USER_PROVIDED;
+        if (harnessCmd != null && !harnessCmd.isBlank()) {
+            this.harnessStatus = HarnessStatus.ACTIVE;
+            this.harnessSource = HarnessSource.USER_PROVIDED;
+            this.inferredHarnessCmd = null;
+        } else {
+            this.harnessStatus = HarnessStatus.NONE;
+            this.harnessSource = HarnessSource.NONE;
+        }
     }
 
     public void configureRalphMaxRetries(int maxRetries) {
@@ -71,6 +77,7 @@ public class RepoSettings {
         if (this.inferredHarnessCmd != null && !this.inferredHarnessCmd.isBlank()) {
             this.harnessCmd = this.inferredHarnessCmd;
             this.harnessStatus = HarnessStatus.ACTIVE;
+            this.inferredHarnessCmd = null;
         }
     }
 

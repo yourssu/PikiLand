@@ -142,7 +142,11 @@ public class DashboardAppService {
         return null;
     }
 
-    public void updateRepoSettings(RepoSettingsDto dto) {
+    public RepoSettingsDto updateRepoSettings(RepoSettingsDto dto) {
+        return updateRepoSettings(dto, null);
+    }
+
+    public RepoSettingsDto updateRepoSettings(RepoSettingsDto dto, String accessToken) {
         Optional<RepoSettings> existing = repoSettingsRepository.findById(dto.getFullName());
         RepoSettings settings;
         if (existing.isPresent()) {
@@ -174,6 +178,26 @@ public class DashboardAppService {
             );
         }
         repoSettingsRepository.save(settings);
+
+        // Auto-infer test command if active and no harnessCmd configured yet
+        if (settings.isActive() && (settings.getHarnessCmd() == null || settings.getHarnessCmd().isBlank())) {
+            return reInferHarness(settings.getRepositoryFullName(), accessToken);
+        }
+
+        boolean hasAppInstalled = githubAuthPort != null && githubAuthPort.isAppInstalledForRepo(dto.getFullName());
+        return new RepoSettingsDto(
+                settings.getRepositoryFullName(),
+                settings.isActive(),
+                settings.getSlackWebhookUrl(),
+                settings.getCustomModel(),
+                settings.getCustomBaseUrl(),
+                settings.getHarnessCmd(),
+                settings.getInferredHarnessCmd(),
+                settings.getHarnessStatus().name(),
+                settings.getHarnessSource().name(),
+                settings.getRalphMaxRetries(),
+                hasAppInstalled
+        );
     }
 
     public RepoSettingsDto approveInferredHarness(String fullName) {

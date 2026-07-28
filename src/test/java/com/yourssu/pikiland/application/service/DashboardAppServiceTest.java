@@ -71,4 +71,38 @@ class DashboardAppServiceTest {
         assertNull(dto.getInferredHarnessCmd(), "Should reset inferred harness command to null on empty file list");
         assertFalse(dto.isHasAppInstalled());
     }
+
+    @Test
+    @DisplayName("updateRepoSettings - 저장소가 활성화(active=true)로 전환되고 하네스 커맨드가 미설정이면 자동 추론을 수행한다")
+    void updateRepoSettings_WhenActiveAndNoHarnessCmd_TriggersAutoInference() {
+        String repo = "owner/java-app";
+        Mockito.doReturn(Arrays.asList("build.gradle.kts", "src"))
+                .when(dashboardAppService).fetchRemoteRepoFilenames(repo, "token");
+        when(repoSettingsRepository.findById(repo))
+                .thenReturn(Optional.of(new RepoSettings(repo, false, "", "", "")));
+
+        RepoSettingsDto inputDto = new RepoSettingsDto(repo, true, "", "", "", "", "", "NONE", "NONE", 3);
+        RepoSettingsDto result = dashboardAppService.updateRepoSettings(inputDto, "token");
+
+        assertNotNull(result);
+        assertEquals("./gradlew test", result.getInferredHarnessCmd());
+        assertEquals("PENDING_CONFIRMATION", result.getHarnessStatus());
+    }
+
+    @Test
+    @DisplayName("approveInferredHarness - 추론된 하네스를 승인하면 harnessCmd로 반영되고 inferredHarnessCmd는 null로 초기화된다")
+    void approveInferredHarness_ClearsInferredHarnessCmd() {
+        String repo = "owner/java-app";
+        RepoSettings settings = new RepoSettings(repo, true, "", "", "");
+        settings.setInferredHarness("./gradlew test", com.yourssu.pikiland.domain.model.HarnessSource.AUTO_INFERRED);
+
+        when(repoSettingsRepository.findById(repo)).thenReturn(Optional.of(settings));
+
+        RepoSettingsDto result = dashboardAppService.approveInferredHarness(repo);
+
+        assertNotNull(result);
+        assertEquals("./gradlew test", result.getHarnessCmd());
+        assertEquals("ACTIVE", result.getHarnessStatus());
+        assertNull(result.getInferredHarnessCmd(), "Inferred harness command should be cleared after approval");
+    }
 }

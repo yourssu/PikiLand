@@ -52,7 +52,8 @@ public class SettingsApiController {
     @PostMapping
     public ResponseEntity<RepoSettingsDto> updateSettings(
             @RequestBody RepoSettingsDto dto,
-            @AuthenticationPrincipal OAuth2User oauth2User) {
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient("github") org.springframework.security.oauth2.client.OAuth2AuthorizedClient authorizedClient) {
 
         if (!isDebug) {
             if (oauth2User == null) {
@@ -65,8 +66,8 @@ public class SettingsApiController {
             }
         }
 
-        dashboardAppService.updateRepoSettings(dto);
-        RepoSettingsDto updated = dashboardAppService.reInferHarness(dto.getFullName());
+        String accessToken = authorizedClient != null && authorizedClient.getAccessToken() != null ? authorizedClient.getAccessToken().getTokenValue() : null;
+        RepoSettingsDto updated = dashboardAppService.updateRepoSettings(dto, accessToken);
         return ResponseEntity.ok(updated);
     }
 
