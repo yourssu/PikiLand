@@ -62,6 +62,18 @@ function updateRepoUiFromDto(dto) {
     const ralph = document.getElementById('ralph-' + fullName);
     if (ralph) ralph.value = dto.ralphMaxRetries || 3;
 
+    // Inferred harness banner live sync
+    const inferredBox = document.getElementById('inferred-box-' + fullName);
+    const inferredCmd = document.getElementById('inferred-cmd-' + fullName);
+    if (inferredBox && inferredCmd) {
+        if (dto.inferredHarnessCmd && dto.inferredHarnessCmd.trim().length > 0) {
+            inferredCmd.textContent = dto.inferredHarnessCmd;
+            inferredBox.style.display = 'block';
+        } else {
+            inferredBox.style.display = 'none';
+        }
+    }
+
     // Harness status badge sync
     const harnessBadge = document.querySelector(`.status-badge-harness[data-repo='${fullName}']`);
     if (harnessBadge && dto.harnessStatus) {
@@ -71,9 +83,13 @@ function updateRepoUiFromDto(dto) {
     }
 
     const sourceBadge = document.querySelector(`.status-badge-source[data-repo='${fullName}']`);
-    if (sourceBadge && dto.harnessSource && dto.harnessSource !== 'NONE') {
-        sourceBadge.textContent = 'Source: ' + dto.harnessSource;
-        sourceBadge.style.display = 'inline-block';
+    if (sourceBadge) {
+        if (dto.harnessSource && dto.harnessSource !== 'NONE') {
+            sourceBadge.textContent = 'Source: ' + dto.harnessSource;
+            sourceBadge.style.display = 'inline-block';
+        } else {
+            sourceBadge.style.display = 'none';
+        }
     }
 }
 
@@ -240,7 +256,11 @@ function handleToggleChange(inputEl) {
         inputEl.checked = false; // Revert toggle
         showToast("⚠️ PikiLand GitHub App이 미설치된 저장소입니다. [🔑 Install App] 버튼을 눌러 먼저 권한을 부여해 주세요.", true);
         alert("⚠️ [PikiLand App 미설치 경고]\n\n" + repoFullName + " 저장소에 PikiLand GitHub App 권한이 부여되지 않았습니다.\n\n[🔑 Install App] 링크를 클릭하여 먼저 GitHub App을 저장소에 설치해 주세요.");
+        return;
     }
+
+    // Persist and sync toggle state to backend immediately
+    saveSettings(repoFullName);
 }
 
 function showToast(message, isError = false) {

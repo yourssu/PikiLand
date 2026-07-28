@@ -128,10 +128,10 @@
                             <input type="number" th:id="|ralph-${repo.fullName}|" th:value="${repo.ralphMaxRetries}" min="1" max="10" placeholder="3" />
                         </div>
 
-                        <!-- Inferred Harness Banner -->
-                        <div th:if="${repo.inferredHarnessCmd != null and not repo.inferredHarnessCmd.isBlank()}" class="inferred-box" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+                        <!-- Inferred Harness Banner (Always in DOM for live JS sync) -->
+                        <div th:id="|inferred-box-${repo.fullName}|" class="inferred-box" th:style="${repo.inferredHarnessCmd != null and not repo.inferredHarnessCmd.isBlank()} ? 'background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: block;' : 'background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;'">
                             <label style="color: #ffc107; font-weight: 600;">💡 Auto-Inferred Test Command (Pending Approval):</label>
-                            <div style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; margin: 6px 0;" th:text="${repo.inferredHarnessCmd}">./gradlew test</div>
+                            <div th:id="|inferred-cmd-${repo.fullName}|" style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; margin: 6px 0;" th:text="${repo.inferredHarnessCmd}">./gradlew test</div>
                             <button type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 4px 10px;" th:data-repo="${repo.fullName}" onclick="approveHarness(this.getAttribute('data-repo'))">Approve Inferred Command</button>
                         </div>
 

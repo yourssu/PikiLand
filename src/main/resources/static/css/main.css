@@ -289,6 +289,11 @@ body {
     display: inline-block;
     width: 46px;
     height: 24px;
+    min-width: 46px;
+    min-height: 24px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-left: 12px;
 }
 
 .switch input {

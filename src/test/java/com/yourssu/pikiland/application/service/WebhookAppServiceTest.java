@@ -12,15 +12,22 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.yourssu.pikiland.domain.port.RepoSettingsRepository;
+import com.yourssu.pikiland.domain.port.SystemSettingsRepository;
+
 class WebhookAppServiceTest {
 
     private SelfHealingAppService selfHealingAppService;
+    private SystemSettingsRepository systemSettingsRepository;
+    private RepoSettingsRepository repoSettingsRepository;
     private WebhookAppService webhookAppService;
 
     @BeforeEach
     void setUp() {
         selfHealingAppService = Mockito.mock(SelfHealingAppService.class);
-        webhookAppService = new WebhookAppService(selfHealingAppService);
+        systemSettingsRepository = Mockito.mock(SystemSettingsRepository.class);
+        repoSettingsRepository = Mockito.mock(RepoSettingsRepository.class);
+        webhookAppService = new WebhookAppService(selfHealingAppService, systemSettingsRepository, repoSettingsRepository);
         ReflectionTestUtils.setField(webhookAppService, "isDebug", true);
     }
 
