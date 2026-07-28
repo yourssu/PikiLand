@@ -469,8 +469,55 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
             return response.getStatusCode() == HttpStatus.OK && response.getBody() != null && response.getBody().containsKey("id");
         } catch (Exception e) {
-            System.err.println("[GitHubAuth] App installation check skipped for " + repo + ": " + e.getMessage());
+            // 404 is normal when App is missing for repo, return false silently
             return false;
         }
+    }
+
+    @Override
+    public java.util.Set<String> getInstalledRepositoryFullNames(String userAccessToken) {
+        java.util.Set<String> installedRepos = new java.util.HashSet<>();
+        if (userAccessToken == null || userAccessToken.isBlank()) {
+            return installedRepos;
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + userAccessToken);
+            headers.set("Accept", "application/vnd.github+json");
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            // 1. Fetch user's app installations
+            String installationsUrl = "https://api.github.com/user/installations";
+            ResponseEntity<Map> resp = restTemplate.exchange(installationsUrl, HttpMethod.GET, entity, Map.class);
+            if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
+                java.util.List<Map<String, Object>> installations = (java.util.List<Map<String, Object>>) resp.getBody().get("installations");
+                if (installations != null) {
+                    for (Map<String, Object> inst : installations) {
+                        Object instIdObj = inst.get("id");
+                        if (instIdObj != null) {
+                            long instId = ((Number) instIdObj).longValue();
+                            // 2. Fetch repositories for each installation in batch
+                            String repoUrl = "https://api.github.com/user/installations/" + instId + "/repositories?per_page=100";
+                            ResponseEntity<Map> repoResp = restTemplate.exchange(repoUrl, HttpMethod.GET, entity, Map.class);
+                            if (repoResp.getStatusCode() == HttpStatus.OK && repoResp.getBody() != null) {
+                                java.util.List<Map<String, Object>> reposList = (java.util.List<Map<String, Object>>) repoResp.getBody().get("repositories");
+                                if (reposList != null) {
+                                    for (Map<String, Object> r : reposList) {
+                                        String fn = (String) r.get("full_name");
+                                        if (fn != null) {
+                                            installedRepos.add(fn);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[GitHubAuth] Failed to batch fetch user app installations: " + e.getMessage());
+        }
+        return installedRepos;
     }
 }

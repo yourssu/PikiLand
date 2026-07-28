@@ -67,6 +67,9 @@ public class DashboardAppService {
     public List<RepoSettingsDto> getUserRepositories(String accessToken) {
         List<RepoSettingsDto> repos = new ArrayList<>();
         try {
+            java.util.Set<String> installedRepos = (githubAuthPort != null) ? 
+                    githubAuthPort.getInstalledRepositoryFullNames(accessToken) : java.util.Collections.emptySet();
+
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + accessToken);
             headers.set("Accept", "application/vnd.github+json");
@@ -91,7 +94,7 @@ public class DashboardAppService {
                     for (Map<String, Object> repoData : response.getBody()) {
                         String fullName = (String) repoData.get("full_name");
                         if (fullName != null) {
-                            boolean hasAppInstalled = githubAuthPort != null && githubAuthPort.isAppInstalledForRepo(fullName);
+                            boolean hasAppInstalled = installedRepos.contains(fullName);
                             Optional<RepoSettings> settingsOpt = repoSettingsRepository.findById(fullName);
                             if (settingsOpt.isPresent()) {
                                 RepoSettings s = settingsOpt.get();
