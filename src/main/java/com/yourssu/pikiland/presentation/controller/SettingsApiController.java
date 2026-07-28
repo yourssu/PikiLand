@@ -50,7 +50,7 @@ public class SettingsApiController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> updateSettings(
+    public ResponseEntity<RepoSettingsDto> updateSettings(
             @RequestBody RepoSettingsDto dto,
             @AuthenticationPrincipal OAuth2User oauth2User) {
 
@@ -66,7 +66,8 @@ public class SettingsApiController {
         }
 
         dashboardAppService.updateRepoSettings(dto);
-        return ResponseEntity.ok().build();
+        RepoSettingsDto updated = dashboardAppService.reInferHarness(dto.getFullName());
+        return ResponseEntity.ok(updated);
     }
 
     @PostMapping("/harness/approve")

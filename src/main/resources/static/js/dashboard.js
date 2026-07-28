@@ -12,6 +12,71 @@ function getCsrfHeaders() {
     return headers;
 }
 
+function handlePemFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        const hiddenEl = document.getElementById('sys-githubPrivateKeyContent');
+        if (hiddenEl) {
+            hiddenEl.value = content;
+        }
+        const statusEl = document.getElementById('pem-file-status');
+        if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.textContent = '✅ Private Key file (' + file.name + ') loaded successfully (' + content.length + ' bytes)';
+        }
+        showToast("Private key file loaded successfully!");
+    };
+    reader.readAsText(file);
+}
+
+function updateRepoUiFromDto(dto) {
+    if (!dto || !dto.fullName) return;
+    const fullName = dto.fullName;
+
+    // Toggle sync
+    const toggle = document.getElementById('toggle-' + fullName);
+    if (toggle) {
+        toggle.checked = dto.active;
+        if (dto.hasAppInstalled !== undefined) {
+            toggle.setAttribute('data-installed', dto.hasAppInstalled);
+        }
+    }
+
+    // Form inputs sync
+    const slack = document.getElementById('slack-' + fullName);
+    if (slack) slack.value = dto.slackWebhookUrl || '';
+
+    const model = document.getElementById('model-' + fullName);
+    if (model) model.value = dto.customModel || '';
+
+    const baseUrl = document.getElementById('baseUrl-' + fullName);
+    if (baseUrl) baseUrl.value = dto.customBaseUrl || '';
+
+    const harness = document.getElementById('harness-' + fullName);
+    if (harness) harness.value = dto.harnessCmd || '';
+
+    const ralph = document.getElementById('ralph-' + fullName);
+    if (ralph) ralph.value = dto.ralphMaxRetries || 3;
+
+    // Harness status badge sync
+    const harnessBadge = document.querySelector(`.status-badge-harness[data-repo='${fullName}']`);
+    if (harnessBadge && dto.harnessStatus) {
+        harnessBadge.textContent = 'Harness: ' + dto.harnessStatus;
+        harnessBadge.className = 'badge status-badge-harness ' + 
+            (dto.harnessStatus === 'ACTIVE' ? 'badge-active' : (dto.harnessStatus === 'PENDING_CONFIRMATION' ? 'badge-pending' : 'badge-none'));
+    }
+
+    const sourceBadge = document.querySelector(`.status-badge-source[data-repo='${fullName}']`);
+    if (sourceBadge && dto.harnessSource && dto.harnessSource !== 'NONE') {
+        sourceBadge.textContent = 'Source: ' + dto.harnessSource;
+        sourceBadge.style.display = 'inline-block';
+    }
+}
+
 function saveSettings(repoFullName) {
     const active = document.getElementById('toggle-' + repoFullName).checked;
     const slackUrl = document.getElementById('slack-' + repoFullName).value;
@@ -39,15 +104,18 @@ function saveSettings(repoFullName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast("Settings updated successfully!");
-            setTimeout(() => window.location.reload(), 1000);
+            return response.json();
         } else {
-            showToast("Failed to save settings.", true);
+            throw new Error("Failed to save settings");
         }
+    })
+    .then(updatedDto => {
+        showToast("Settings saved and synced with backend!");
+        updateRepoUiFromDto(updatedDto);
     })
     .catch(error => {
         console.error('Error saving settings:', error);
-        showToast("Network error occurred.", true);
+        showToast("Failed to save settings.", true);
     });
 }
 
@@ -67,6 +135,12 @@ function loadSystemSettings() {
             document.getElementById('sys-githubClientId').value = data.githubClientId || '';
             document.getElementById('sys-githubClientSecret').value = data.githubClientSecret || '';
             document.getElementById('sys-githubPrivateKeyContent').value = data.githubPrivateKeyContent || '';
+            
+            const statusEl = document.getElementById('pem-file-status');
+            if (statusEl && data.githubPrivateKeyContent && data.githubPrivateKeyContent.trim().length > 0) {
+                statusEl.style.display = 'block';
+                statusEl.textContent = '✅ Previously configured: Private Key (.pem) is registered in server.';
+            }
         }
     })
     .catch(err => {
@@ -90,7 +164,7 @@ function saveSystemSettings() {
     })
     .then(response => {
         if (response.ok) {
-            showToast("Central System Settings updated successfully!");
+            showToast("Central System Settings updated and synced!");
         } else {
             showToast("Failed to save central system settings.", true);
         }
@@ -113,15 +187,18 @@ function approveHarness(repoFullName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast("Harness command approved and activated!");
-            setTimeout(() => window.location.reload(), 1000);
+            return response.json();
         } else {
-            showToast("Failed to approve harness command.", true);
+            throw new Error("Failed to approve harness");
         }
+    })
+    .then(updatedDto => {
+        showToast("Harness command approved and synced with backend!");
+        updateRepoUiFromDto(updatedDto);
     })
     .catch(error => {
         console.error('Error approving harness:', error);
-        showToast("Network error occurred.", true);
+        showToast("Failed to approve harness command.", true);
     });
 }
 
@@ -146,8 +223,20 @@ function inferHarness(repoFullName) {
     });
 }
 
+function handleToggleChange(inputEl) {
+    const isInstalled = inputEl.getAttribute('data-installed') === 'true';
+    const repoFullName = inputEl.getAttribute('data-repo');
+
+    if (!isInstalled && inputEl.checked) {
+        inputEl.checked = false; // Revert toggle
+        showToast("⚠️ PikiLand GitHub App이 미설치된 저장소입니다. [🔑 Install App] 버튼을 눌러 먼저 권한을 부여해 주세요.", true);
+        alert("⚠️ [PikiLand App 미설치 경고]\n\n" + repoFullName + " 저장소에 PikiLand GitHub App 권한이 부여되지 않았습니다.\n\n[🔑 Install App] 링크를 클릭하여 먼저 GitHub App을 저장소에 설치해 주세요.");
+    }
+}
+
 function showToast(message, isError = false) {
     const toast = document.getElementById('toast');
+    if (!toast) return;
     toast.textContent = message;
     if (isError) {
         toast.classList.add('error');
@@ -158,6 +247,6 @@ function showToast(message, isError = false) {
     
     setTimeout(() => {
         toast.classList.remove('show');
-    }, 3000);
+    }, 4000);
 }
 

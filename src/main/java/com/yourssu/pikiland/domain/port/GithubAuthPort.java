@@ -9,4 +9,5 @@ public interface GithubAuthPort {
     String fetchIssueBody(String repo, String issueNumber, String token);
     void triggerWorkflowDispatch(String repo, String workflowId, String ref, Map<String, Object> inputs, String token);
     void installWorkflowIfMissing(String repo, String token, String defaultBranch);
+    boolean isAppInstalledForRepo(String repo);
 }

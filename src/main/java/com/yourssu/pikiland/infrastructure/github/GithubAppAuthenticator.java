@@ -403,4 +403,22 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             throw new RuntimeException("Failed to check/install workflow file in " + repo, e);
         }
     }
+
+    @Override
+    public boolean isAppInstalledForRepo(String repo) {
+        if (repo == null || !repo.contains("/")) return false;
+        String jwt = generateJwt();
+        String url = "https://api.github.com/repos/" + repo + "/installation";
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + jwt);
+            headers.set("Accept", "application/vnd.github+json");
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            return response.getStatusCode() == HttpStatus.OK && response.getBody() != null && response.getBody().containsKey("id");
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }

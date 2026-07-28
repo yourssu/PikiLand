@@ -66,8 +66,10 @@
                         <input type="password" id="sys-githubClientSecret" placeholder="••••••••" />
                     </div>
                     <div class="form-group" style="grid-column: 1 / -1;">
-                        <label for="sys-githubPrivateKeyContent">GitHub App Private Key (PEM Content)</label>
-                        <textarea id="sys-githubPrivateKeyContent" rows="4" style="font-family: monospace; font-size: 0.85rem;" placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"></textarea>
+                        <label for="sys-githubPrivateKeyFile">📂 GitHub App Private Key File (.pem File Upload)</label>
+                        <input type="file" id="sys-githubPrivateKeyFile" accept=".pem,.key" onchange="handlePemFileUpload(event)" style="padding: 8px; border: 1px dashed #6366f1; border-radius: 6px; background: rgba(0,0,0,0.2); cursor: pointer; width: 100%; color: #cbd5e1;" />
+                        <input type="hidden" id="sys-githubPrivateKeyContent" />
+                        <div id="pem-file-status" style="font-size: 0.85rem; color: #10b981; margin-top: 6px; display: none;">✅ Private Key (.pem) file loaded successfully.</div>
                     </div>
                 </div>
             </div>
@@ -88,15 +90,20 @@
                     <div class="repo-meta">
                         <div>
                             <h3 class="repo-title" th:text="${repo.fullName}">owner/repo</h3>
-                            <div class="status-badges" style="margin-top: 4px;">
-                                <span class="badge" th:classappend="${repo.harnessStatus == 'ACTIVE' ? 'badge-active' : (repo.harnessStatus == 'PENDING_CONFIRMATION' ? 'badge-pending' : 'badge-none')}"
-                                      th:text="${'Harness Status: ' + repo.harnessStatus}">Harness Status</span>
-                                <span class="badge badge-info" th:if="${repo.harnessSource != 'NONE'}"
+                            <div class="status-badges" style="margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                                <span class="badge" th:classappend="${repo.hasAppInstalled ? 'badge-active' : 'badge-none'}"
+                                      th:text="${repo.hasAppInstalled ? '✅ App Installed' : '⚠️ App Missing'}">App Status</span>
+                                <span class="badge status-badge-harness" th:data-repo="${repo.fullName}" th:classappend="${repo.harnessStatus == 'ACTIVE' ? 'badge-active' : (repo.harnessStatus == 'PENDING_CONFIRMATION' ? 'badge-pending' : 'badge-none')}"
+                                      th:text="${'Harness: ' + repo.harnessStatus}">Harness Status</span>
+                                <span class="badge badge-info status-badge-source" th:data-repo="${repo.fullName}" th:if="${repo.harnessSource != 'NONE'}"
                                       th:text="${'Source: ' + repo.harnessSource}">Source</span>
+                                <a th:if="${not repo.hasAppInstalled}" href="https://github.com/apps/pikiland/installations/new" target="_blank" class="btn btn-secondary" style="font-size: 0.75rem; padding: 2px 8px; color: #fbbf24; border-color: #f59e0b; text-decoration: none;">
+                                    🔑 Install App
+                                </a>
                             </div>
                         </div>
                         <label class="switch">
-                            <input type="checkbox" th:id="|toggle-${repo.fullName}|" th:checked="${repo.active}" />
+                            <input type="checkbox" th:id="|toggle-${repo.fullName}|" th:checked="${repo.active}" th:data-installed="${repo.hasAppInstalled}" th:data-repo="${repo.fullName}" onchange="handleToggleChange(this)" />
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -107,19 +114,18 @@
                             <input type="text" th:id="|slack-${repo.fullName}|" th:value="${repo.slackWebhookUrl}" placeholder="https://hooks.slack.com/services/..." />
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-                            <div class="form-group">
-                                <label th:for="|model-${repo.fullName}|">Custom AI Model (Optional)</label>
-                                <input type="text" th:id="|model-${repo.fullName}|" th:value="${repo.customModel}" placeholder="gpt-4o" />
-                            </div>
-                            <div class="form-group">
-                                <label th:for="|baseUrl-${repo.fullName}|">Custom Base URL (Optional)</label>
-                                <input type="text" th:id="|baseUrl-${repo.fullName}|" th:value="${repo.customBaseUrl}" placeholder="https://api.openai.com/v1" />
-                            </div>
-                            <div class="form-group">
-                                <label th:for="|ralph-${repo.fullName}|">Ralph Max Retries</label>
-                                <input type="number" th:id="|ralph-${repo.fullName}|" th:value="${repo.ralphMaxRetries}" min="1" max="10" placeholder="3" />
-                            </div>
+                        <!-- Full width vertical inputs -->
+                        <div class="form-group">
+                            <label th:for="|model-${repo.fullName}|">Custom AI Model (Optional)</label>
+                            <input type="text" th:id="|model-${repo.fullName}|" th:value="${repo.customModel}" placeholder="gpt-4o / claude-3-5-sonnet" />
+                        </div>
+                        <div class="form-group">
+                            <label th:for="|baseUrl-${repo.fullName}|">Custom Base URL (Optional)</label>
+                            <input type="text" th:id="|baseUrl-${repo.fullName}|" th:value="${repo.customBaseUrl}" placeholder="https://api.openai.com/v1" />
+                        </div>
+                        <div class="form-group">
+                            <label th:for="|ralph-${repo.fullName}|">Ralph Max Retries</label>
+                            <input type="number" th:id="|ralph-${repo.fullName}|" th:value="${repo.ralphMaxRetries}" min="1" max="10" placeholder="3" />
                         </div>
 
                         <!-- Inferred Harness Banner -->

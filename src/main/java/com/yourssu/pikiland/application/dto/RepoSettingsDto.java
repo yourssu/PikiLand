@@ -11,15 +11,21 @@ public class RepoSettingsDto {
     private String harnessStatus;
     private String harnessSource;
     private int ralphMaxRetries;
+    private boolean hasAppInstalled;
 
     public RepoSettingsDto() {}
 
     public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel, String harnessCmd) {
-        this(fullName, active, slackWebhookUrl, customModel, "", harnessCmd, "", "NONE", "NONE", 3);
+        this(fullName, active, slackWebhookUrl, customModel, "", harnessCmd, "", "NONE", "NONE", 3, false);
     }
 
     public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel, String customBaseUrl,
                            String harnessCmd, String inferredHarnessCmd, String harnessStatus, String harnessSource, int ralphMaxRetries) {
+        this(fullName, active, slackWebhookUrl, customModel, customBaseUrl, harnessCmd, inferredHarnessCmd, harnessStatus, harnessSource, ralphMaxRetries, false);
+    }
+
+    public RepoSettingsDto(String fullName, boolean active, String slackWebhookUrl, String customModel, String customBaseUrl,
+                           String harnessCmd, String inferredHarnessCmd, String harnessStatus, String harnessSource, int ralphMaxRetries, boolean hasAppInstalled) {
         this.fullName = fullName;
         this.active = active;
         this.slackWebhookUrl = slackWebhookUrl;
@@ -30,6 +36,7 @@ public class RepoSettingsDto {
         this.harnessStatus = harnessStatus;
         this.harnessSource = harnessSource;
         this.ralphMaxRetries = ralphMaxRetries > 0 ? ralphMaxRetries : 3;
+        this.hasAppInstalled = hasAppInstalled;
     }
 
     public String getFullName() {
@@ -110,6 +117,14 @@ public class RepoSettingsDto {
 
     public void setRalphMaxRetries(int ralphMaxRetries) {
         this.ralphMaxRetries = ralphMaxRetries;
+    }
+
+    public boolean isHasAppInstalled() {
+        return hasAppInstalled;
+    }
+
+    public void setHasAppInstalled(boolean hasAppInstalled) {
+        this.hasAppInstalled = hasAppInstalled;
     }
 }
 

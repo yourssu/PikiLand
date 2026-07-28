@@ -24,14 +24,17 @@ public class DashboardAppService {
     private final RepoSettingsRepository repoSettingsRepository;
     private final SystemSettingsRepository systemSettingsRepository;
     private final HarnessInferenceService harnessInferenceService;
+    private final com.yourssu.pikiland.domain.port.GithubAuthPort githubAuthPort;
     private final RestTemplate restTemplate;
 
     public DashboardAppService(RepoSettingsRepository repoSettingsRepository,
                                SystemSettingsRepository systemSettingsRepository,
-                               HarnessInferenceService harnessInferenceService) {
+                               HarnessInferenceService harnessInferenceService,
+                               com.yourssu.pikiland.domain.port.GithubAuthPort githubAuthPort) {
         this.repoSettingsRepository = repoSettingsRepository;
         this.systemSettingsRepository = systemSettingsRepository;
         this.harnessInferenceService = harnessInferenceService;
+        this.githubAuthPort = githubAuthPort;
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000);
         factory.setReadTimeout(60000);
@@ -88,6 +91,7 @@ public class DashboardAppService {
                     for (Map<String, Object> repoData : response.getBody()) {
                         String fullName = (String) repoData.get("full_name");
                         if (fullName != null) {
+                            boolean hasAppInstalled = githubAuthPort != null && githubAuthPort.isAppInstalledForRepo(fullName);
                             Optional<RepoSettings> settingsOpt = repoSettingsRepository.findById(fullName);
                             if (settingsOpt.isPresent()) {
                                 RepoSettings s = settingsOpt.get();
@@ -101,10 +105,11 @@ public class DashboardAppService {
                                         s.getInferredHarnessCmd(),
                                         s.getHarnessStatus().name(),
                                         s.getHarnessSource().name(),
-                                        s.getRalphMaxRetries()
+                                        s.getRalphMaxRetries(),
+                                        hasAppInstalled
                                 ));
                             } else {
-                                repos.add(new RepoSettingsDto(fullName, false, "", "", "", "", "", "NONE", "NONE", 3));
+                                repos.add(new RepoSettingsDto(fullName, false, "", "", "", "", "", "NONE", "NONE", 3, hasAppInstalled));
                             }
                         }
                     }
@@ -194,13 +199,16 @@ public class DashboardAppService {
     public RepoSettingsDto reInferHarness(String fullName, String accessToken) {
         List<String> filenames = fetchRemoteRepoFilenames(fullName, accessToken);
         String inferredCmd = harnessInferenceService.inferHarnessCmdFromFilenames(filenames);
-        if (inferredCmd == null || inferredCmd.isBlank()) {
-            inferredCmd = "./gradlew test";
-        }
+
         RepoSettings settings = repoSettingsRepository.findById(fullName)
                 .orElseGet(() -> new RepoSettings(fullName, false, "", "", ""));
-        settings.setInferredHarness(inferredCmd, HarnessSource.AUTO_INFERRED);
-        repoSettingsRepository.save(settings);
+        
+        if (inferredCmd != null && !inferredCmd.isBlank()) {
+            settings.setInferredHarness(inferredCmd, HarnessSource.AUTO_INFERRED);
+            repoSettingsRepository.save(settings);
+        }
+
+        boolean hasAppInstalled = githubAuthPort != null && githubAuthPort.isAppInstalledForRepo(fullName);
         return new RepoSettingsDto(
                 settings.getRepositoryFullName(),
                 settings.isActive(),
@@ -211,7 +219,8 @@ public class DashboardAppService {
                 settings.getInferredHarnessCmd(),
                 settings.getHarnessStatus().name(),
                 settings.getHarnessSource().name(),
-                settings.getRalphMaxRetries()
+                settings.getRalphMaxRetries(),
+                hasAppInstalled
         );
     }
 
