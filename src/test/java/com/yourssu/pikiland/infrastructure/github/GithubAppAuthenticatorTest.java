@@ -84,7 +84,7 @@ class GithubAppAuthenticatorTest {
 
         // Verify Native Java setup and bootRun execution exist
         assertTrue(decodedYaml.contains("actions/setup-java@v4"), "Workflow should use actions/setup-java@v4");
-        assertTrue(decodedYaml.contains("./gradlew bootRun --args=\"--cli\""), "Workflow should execute ./gradlew bootRun --args=\"--cli\"");
+        assertTrue(decodedYaml.contains("./gradlew bootRun --args=\"--cli --spring.profiles.active=local\""), "Workflow should execute ./gradlew bootRun --args=\"--cli --spring.profiles.active=local\"");
 
         // Verify PikiLand Engine checkout and workspace path
         assertTrue(decodedYaml.contains("repository: 'yourssu/PikiLand'"), "Workflow should checkout PikiLand engine repository");

@@ -416,7 +416,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                     String content = (String) body.get("content");
                     String decodedContent = content != null ? new String(Base64.getMimeDecoder().decode(content.replaceAll("\\s+", ""))) : "";
 
-                    if (decodedContent.contains("ralph_max_retries:") && decodedContent.contains("pikiland-engine")) {
+                    if (decodedContent.contains("ralph_max_retries:") && decodedContent.contains("pikiland-engine") && decodedContent.contains("spring.profiles.active=local")) {
                         System.out.println("[GitHub] pikiland.yml already up-to-date in " + repo);
                         return;
                     }
@@ -504,7 +504,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "        uses: actions/checkout@v4\n" +
                 "        with:\n" +
                 "          repository: 'yourssu/PikiLand'\n" +
+                "          ref: 'main'\n" +
                 "          path: 'pikiland-engine'\n" +
+                "          token: ${{ secrets.PIKILAND_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}\n" +
                 "\n" +
                 "      - name: Set up Java 21\n" +
                 "        uses: actions/setup-java@v4\n" +
@@ -532,7 +534,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "        run: |\n" +
                 "          cd pikiland-engine\n" +
                 "          chmod +x gradlew\n" +
-                "          ./gradlew bootRun --args=\"--cli\"\n";
+                "          ./gradlew bootRun --args=\"--cli --spring.profiles.active=local\"\n";
     }
 
     @Override
