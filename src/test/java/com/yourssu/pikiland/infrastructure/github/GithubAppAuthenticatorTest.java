@@ -82,9 +82,9 @@ class GithubAppAuthenticatorTest {
         assertFalse(decodedYaml.contains("docker run"), "Workflow should not contain docker run command");
         assertFalse(decodedYaml.contains("ghcr.io/yourssu/pikiland"), "Workflow should not reference Docker registry image");
 
-        // Verify Native Java setup and bootRun execution exist
-        assertTrue(decodedYaml.contains("actions/setup-java@v4"), "Workflow should use actions/setup-java@v4");
-        assertTrue(decodedYaml.contains("./gradlew bootRun --args=\"--cli --spring.profiles.active=local\""), "Workflow should execute ./gradlew bootRun --args=\"--cli --spring.profiles.active=local\"");
+        // Verify Bun setup and TS execution exist
+        assertTrue(decodedYaml.contains("oven-sh/setup-bun@v2"), "Workflow should use oven-sh/setup-bun@v2");
+        assertTrue(decodedYaml.contains("bun run ./src/index.ts"), "Workflow should execute bun run ./src/index.ts");
 
         // Verify PikiLand Engine checkout and workspace path
         assertTrue(decodedYaml.contains("repository: 'yourssu/PikiLand-Engine'"), "Workflow should checkout PikiLand engine repository");

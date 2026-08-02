@@ -470,7 +470,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "        description: 'Custom AI API Base URL'\n" +
                 "        required: false\n" +
                 "      harness_cmd:\n" +
-                "        description: 'Command to run harness verification (e.g. ./gradlew test)'\n" +
+                "        description: 'Command to run harness verification (e.g. ./gradlew test, cargo test, pytest)'\n" +
                 "        required: false\n" +
                 "      ralph_max_retries:\n" +
                 "        description: 'Ralph Loop max retries cap'\n" +
@@ -497,13 +497,12 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "          path: 'pikiland-engine'\n" +
                 "          token: ${{ secrets.PIKILAND_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}\n" +
                 "\n" +
-                "      - name: Set up Java 21\n" +
-                "        uses: actions/setup-java@v4\n" +
+                "      - name: Setup Bun Environment\n" +
+                "        uses: oven-sh/setup-bun@v2\n" +
                 "        with:\n" +
-                "          java-version: '21'\n" +
-                "          distribution: 'temurin'\n" +
+                "          bun-version: latest\n" +
                 "\n" +
-                "      - name: Run PikiLand CLI (Native Execution)\n" +
+                "      - name: Run PikiLand CLI (TypeScript + Bun Engine)\n" +
                 "        env:\n" +
                 "          PIKILAND_CLI: \"true\"\n" +
                 "          PIKILAND_EVENT_TYPE: \"${{ github.event.inputs.event_type }}\"\n" +
@@ -524,8 +523,8 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "          ANTHROPIC_API_KEY: \"${{ secrets.ANTHROPIC_API_KEY || secrets.PIKILAND_AI_API_KEY }}\"\n" +
                 "        run: |\n" +
                 "          cd pikiland-engine\n" +
-                "          chmod +x gradlew\n" +
-                "          ./gradlew bootRun --args=\"--cli --spring.profiles.active=local\"\n";
+                "          bun install\n" +
+                "          bun run ./src/index.ts\n";
     }
 
     @Override
