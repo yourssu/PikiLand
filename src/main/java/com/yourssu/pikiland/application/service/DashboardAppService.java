@@ -70,59 +70,29 @@ public class DashboardAppService {
             java.util.Set<String> installedRepos = (githubAuthPort != null) ? 
                     githubAuthPort.getInstalledRepositoryFullNames(accessToken) : java.util.Collections.emptySet();
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + accessToken);
-            headers.set("Accept", "application/vnd.github+json");
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            String nextUrl = "https://api.github.com/user/repos?per_page=100&page=1";
-            int pageCount = 0;
-            while (nextUrl != null) {
-                pageCount++;
-                if (pageCount > 250) {
-                    System.err.println("[DashboardAppService] Aborting pagination: exceeded 250 pages.");
-                    break;
-                }
-                ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-                        nextUrl,
-                        HttpMethod.GET,
-                        entity,
-                        new ParameterizedTypeReference<List<Map<String, Object>>>() {}
-                );
-
-                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                    for (Map<String, Object> repoData : response.getBody()) {
-                        String fullName = (String) repoData.get("full_name");
-                        if (fullName != null) {
-                            boolean hasAppInstalled = installedRepos.contains(fullName);
-                            Optional<RepoSettings> settingsOpt = repoSettingsRepository.findById(fullName);
-                            if (settingsOpt.isPresent()) {
-                                RepoSettings s = settingsOpt.get();
-                                repos.add(new RepoSettingsDto(
-                                        s.getRepositoryFullName(),
-                                        s.isActive(),
-                                        s.getSlackWebhookUrl(),
-                                        s.getCustomModel(),
-                                        s.getCustomBaseUrl(),
-                                        s.getHarnessCmd(),
-                                        s.getInferredHarnessCmd(),
-                                        s.getHarnessStatus().name(),
-                                        s.getHarnessSource().name(),
-                                        s.getRalphMaxRetries(),
-                                        hasAppInstalled
-                                ));
-                            } else {
-                                repos.add(new RepoSettingsDto(fullName, false, "", "", "", "", "", "NONE", "NONE", 3, hasAppInstalled));
-                            }
-                        }
-                    }
-                    nextUrl = parseNextUrl(response.getHeaders().getFirst("Link"));
+            for (String fullName : installedRepos) {
+                Optional<RepoSettings> settingsOpt = repoSettingsRepository.findById(fullName);
+                if (settingsOpt.isPresent()) {
+                    RepoSettings s = settingsOpt.get();
+                    repos.add(new RepoSettingsDto(
+                            s.getRepositoryFullName(),
+                            s.isActive(),
+                            s.getSlackWebhookUrl(),
+                            s.getCustomModel(),
+                            s.getCustomBaseUrl(),
+                            s.getHarnessCmd(),
+                            s.getInferredHarnessCmd(),
+                            s.getHarnessStatus().name(),
+                            s.getHarnessSource().name(),
+                            s.getRalphMaxRetries(),
+                            true
+                    ));
                 } else {
-                    break;
+                    repos.add(new RepoSettingsDto(fullName, false, "", "", "", "", "", "NONE", "NONE", 3, true));
                 }
             }
         } catch (Exception e) {
-            System.err.println("Failed to fetch user repositories from GitHub: " + e.getMessage());
+            System.err.println("Failed to fetch installed repositories: " + e.getMessage());
         }
         return repos;
     }

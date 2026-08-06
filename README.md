@@ -11,6 +11,12 @@ PikiLand는 GitHub CI/CD 워크플로 실패 및 이슈를 수신하고, AI 코�
 - **오케스트레이터 & 실행 엔진 이원화**:
   - **Web App (Coordinator)**: Spring Boot 3.3 (Java 21, Virtual Threads) 기반의 오케스트레이터. 웹훅 수신, OAuth 인증, 대시보드, 어드민 및 저장소 워크플로 자동 삽입을 관리합니다.
   - **CLI (Execution Engine)**: GitHub Actions 환경에서 단발성으로 동작하는 실행 엔진 (`yourssu/PikiLand-Engine`). 분석, Ralph Loop, 패치 적용, PR 생성을 담당합니다.
+- **단방향 프로덕션 로그 수집 & 1회성 SSH 프로비저닝 (Zero Trust)**:
+  - 대시보드 UI에서 1회용 SSH Private Key(`.pem`)를 통해 원격 EC2에 Fluent Bit 수집기를 자동 설치하고 `grep` 정규식 필터를 주입하며 접속 후 SSH 키는 원천 파기됩니다.
+- **LLM 기반 로그 경로 자동 추론**:
+  - `application.yml`, `logback.xml`, `docker-compose.yml` 등 프로젝트 설정 파일을 분석하여 프로덕션 로그 경로를 자동 추론합니다.
+- **GitHub App 설치 완료 전용 안내 페이지 (`/setup`) & Direct API 로딩 최적화**:
+  - 앱 설치 직후 연결되는 전용 완료 페이지(`/setup`)를 제공하고, 설치된 저장소만 direct로 로딩하여 대시보드 성능을 최적화합니다.
 - **Harness & Ralph Loop 기반 자가 보완 검증**:
   - 패치 전 테스트 실패(Red)로 버그를 재현하고, 패치 후 테스트 성공(Green) 및 회귀 테스트를 통과한 패치만 PR로 생성합니다.
 - **Harness Command 자동 추론**:

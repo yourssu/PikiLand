@@ -571,17 +571,21 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                             long instId = ((Number) instIdObj).longValue();
                             // 2. Fetch repositories for each installation in batch
                             String repoUrl = "https://api.github.com/user/installations/" + instId + "/repositories?per_page=100";
-                            ResponseEntity<Map> repoResp = restTemplate.exchange(repoUrl, HttpMethod.GET, entity, Map.class);
-                            if (repoResp.getStatusCode() == HttpStatus.OK && repoResp.getBody() != null) {
-                                java.util.List<Map<String, Object>> reposList = (java.util.List<Map<String, Object>>) repoResp.getBody().get("repositories");
-                                if (reposList != null) {
-                                    for (Map<String, Object> r : reposList) {
-                                        String fn = (String) r.get("full_name");
-                                        if (fn != null) {
-                                            installedRepos.add(fn);
+                            try {
+                                ResponseEntity<Map> repoResp = restTemplate.exchange(repoUrl, HttpMethod.GET, entity, Map.class);
+                                if (repoResp.getStatusCode() == HttpStatus.OK && repoResp.getBody() != null) {
+                                    java.util.List<Map<String, Object>> reposList = (java.util.List<Map<String, Object>>) repoResp.getBody().get("repositories");
+                                    if (reposList != null) {
+                                        for (Map<String, Object> r : reposList) {
+                                            String fn = (String) r.get("full_name");
+                                            if (fn != null) {
+                                                installedRepos.add(fn);
+                                            }
                                         }
                                     }
                                 }
+                            } catch (Exception e) {
+                                System.err.println("[GitHubAuth] Failed to fetch repositories for installation " + instId + ": " + e.getMessage());
                             }
                         }
                     }

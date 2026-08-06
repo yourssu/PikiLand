@@ -35,16 +35,34 @@ public class DashboardController {
             @AuthenticationPrincipal OAuth2User oauth2User,
             @RegisteredOAuth2AuthorizedClient("github") OAuth2AuthorizedClient authorizedClient) {
 
-        String accessToken = authorizedClient.getAccessToken().getTokenValue();
+        String accessToken = (authorizedClient != null && authorizedClient.getAccessToken() != null) 
+                ? authorizedClient.getAccessToken().getTokenValue() : null;
         String username = oauth2User != null ? oauth2User.getAttribute("login") : "anonymous";
         boolean isAdmin = adminSecurityChecker.isAdmin(oauth2User);
 
-        List<RepoSettingsDto> repos = dashboardAppService.getUserRepositories(accessToken);
+        List<RepoSettingsDto> repos = (accessToken != null) ? dashboardAppService.getUserRepositories(accessToken) : List.of();
 
         model.addAttribute("username", username);
         model.addAttribute("isAdmin", isAdmin);
         model.addAttribute("repos", repos);
 
         return "dashboard";
+    }
+
+    @GetMapping({"/setup", "/install/callback", "/github/callback"})
+    public String viewSetupSuccess(
+            Model model,
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @RegisteredOAuth2AuthorizedClient("github") OAuth2AuthorizedClient authorizedClient) {
+
+        String accessToken = (authorizedClient != null && authorizedClient.getAccessToken() != null)
+                ? authorizedClient.getAccessToken().getTokenValue() : null;
+        String username = oauth2User != null ? oauth2User.getAttribute("login") : "anonymous";
+        List<RepoSettingsDto> repos = (accessToken != null) ? dashboardAppService.getUserRepositories(accessToken) : List.of();
+
+        model.addAttribute("username", username);
+        model.addAttribute("repos", repos);
+
+        return "setup";
     }
 }

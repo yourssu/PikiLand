@@ -138,12 +138,15 @@
                             <input type="text" th:id="|harness-${repo.fullName}|" th:value="${repo.harnessCmd}" placeholder="e.g. ./gradlew test, npm test, pytest" />
                         </div>
 
-                        <div class="button-group" style="display: flex; gap: 8px;">
+                        <div class="button-group" style="display: flex; gap: 8px; flex-wrap: wrap;">
                             <button type="button" class="btn btn-primary btn-save" style="flex: 1;" th:data-repo="${repo.fullName}" onclick="saveSettings(this.getAttribute('data-repo'))">
                                 Save Configuration
                             </button>
                             <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" th:data-repo="${repo.fullName}" onclick="inferHarness(this.getAttribute('data-repo'))">
                                 Re-infer Command
+                            </button>
+                            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem; border-color: #6366f1; color: #818cf8;" th:data-repo="${repo.fullName}" onclick="openProvisionModal(this.getAttribute('data-repo'))">
+                                ⚡ Provision Fluent Bit (EC2)
                             </button>
                         </div>
                     </div>
@@ -153,9 +156,111 @@
         </main>
     </div>
 
+    <!-- EC2 Provisioning Modal -->
+    <div id="provision-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+        <div class="glass-card" style="width: 100%; max-width: 540px; padding: 24px; border-radius: 12px; background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.1);">
+            <h3 style="margin-top: 0; color: #818cf8; font-size: 1.2rem;">⚡ 1-Time SSH Provisioning (EC2 Fluent Bit)</h3>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 16px;">
+                프로덕션 EC2 서버에 Fluent Bit 수집기를 자동 설치하고 연결합니다. 접속 후 원격 <code>authorized_keys</code> 및 로컬 SSH 키는 <strong>즉시 원천 파기</strong>됩니다.
+            </p>
+            <input type="hidden" id="modal-repo-name" />
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 4px;">Target Repository</label>
+                <input type="text" id="modal-repo-display" readonly style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; padding: 8px; border-radius: 6px;" />
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 4px;">EC2 Instance IP</label>
+                <input type="text" id="modal-ec2-ip" placeholder="192.168.1.100 or 54.180.x.x" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px; border-radius: 6px;" />
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 4px;">SSH Username</label>
+                <input type="text" id="modal-ssh-user" value="ec2-user" placeholder="ec2-user / ubuntu" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px; border-radius: 6px;" />
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 4px;">Log File Path</label>
+                <input type="text" id="modal-log-path" value="/var/log/production/*.log" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px; border-radius: 6px;" />
+            </div>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 4px;">1-Time SSH Private Key (.pem content)</label>
+                <textarea id="modal-pem-key" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----\n..." style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #38bdf8; font-family: monospace; font-size: 0.8rem; padding: 8px; border-radius: 6px;"></textarea>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeProvisionModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitEc2Provision()">Start 1-Time Provisioning</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast notification -->
     <div id="toast" class="toast">Settings updated successfully!</div>
 
     <script src="/js/dashboard.js"></script>
+    <script>
+        async function openProvisionModal(repoName) {
+            document.getElementById('modal-repo-name').value = repoName;
+            document.getElementById('modal-repo-display').value = repoName;
+            document.getElementById('provision-modal').style.display = 'flex';
+            
+            try {
+                const res = await fetch('/api/settings/infer-log-path?repo=' + encodeURIComponent(repoName));
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.inferredLogPath) {
+                        document.getElementById('modal-log-path').value = data.inferredLogPath;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to infer log path via API, using default', e);
+            }
+        }
+        function closeProvisionModal() {
+            document.getElementById('provision-modal').style.display = 'none';
+        }
+        async function submitEc2Provision() {
+            const repo = document.getElementById('modal-repo-name').value;
+            const ip = document.getElementById('modal-ec2-ip').value.trim();
+            const user = document.getElementById('modal-ssh-user').value.trim();
+            const path = document.getElementById('modal-log-path').value.trim();
+            const pem = document.getElementById('modal-pem-key').value.trim();
+
+            if (!ip || !user || !pem) {
+                alert('Please enter EC2 IP, SSH Username, and PEM Private Key content.');
+                return;
+            }
+
+            const csrfTokenMeta = document.querySelector('meta[name="_csrf"]');
+            const csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrfTokenMeta && csrfHeaderMeta && csrfTokenMeta.content) {
+                headers[csrfHeaderMeta.content] = csrfTokenMeta.content;
+            }
+
+            try {
+                const res = await fetch('/api/settings/provision-ec2', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        repositoryFullName: repo,
+                        ec2Ip: ip,
+                        sshUser: user,
+                        logPath: path,
+                        pemKey: pem,
+                        pipelineServerHost: window.location.hostname || 'localhost',
+                        pipelineServerPort: window.location.port ? parseInt(window.location.port) : 8080
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('✅ EC2 Fluent Bit provisioning completed successfully! SSH key has been revoked.');
+                    closeProvisionModal();
+                } else {
+                    alert('❌ Provisioning Failed: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('❌ Error connecting to server: ' + err.message);
+            }
+        }
+    </script>
+
 </body>
 </html>

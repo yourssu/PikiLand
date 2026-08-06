@@ -15,11 +15,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**")
+                .ignoringRequestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/provision-ec2")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/css/**", "/js/**", "/error", "/").permitAll()
+                .requestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/css/**", "/js/**", "/error", "/", "/setup", "/install/callback", "/github/callback").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth -> oauth

@@ -121,6 +121,34 @@ public class RepoSettings {
         return harnessSource;
     }
 
+    private boolean logIngestActive;
+    private String logReceiverToken;
+    private String ec2Ip;
+    private String logPath;
+
+    public void configureLogIngest(boolean active, String token, String ec2Ip, String logPath) {
+        this.logIngestActive = active;
+        this.logReceiverToken = token;
+        this.ec2Ip = ec2Ip;
+        this.logPath = logPath;
+    }
+
+    public boolean isLogIngestActive() {
+        return logIngestActive;
+    }
+
+    public String getLogReceiverToken() {
+        return logReceiverToken;
+    }
+
+    public String getEc2Ip() {
+        return ec2Ip;
+    }
+
+    public String getLogPath() {
+        return logPath;
+    }
+
     public int getRalphMaxRetries() {
         return ralphMaxRetries;
     }

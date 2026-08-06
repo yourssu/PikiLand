@@ -91,6 +91,23 @@ Harness는 기술스택과 관계없이 다음을 제공해야 합니다.
 - 성공, 재현 불가, 검증 실패, 무진전, 사용량 소진을 구분한다.
 - 외부 Harness 결과가 완료를 판정한다.
 
+### PikiLand Engine CLI Error Exit Code & PR Metadata Contract
+
+- **Exit Code 1 계약**: PikiLand Engine CLI(`yourssu/PikiLand-Engine`)는 LLM API 연결 실패, 토큰 한도 소진 또는 패치 생성/검증 실패(PR 미생성) 시 자바/Node 프로세스가 반드시 `process.exit(1)`을 호출하여 GitHub Actions 결과를 `workflow_run failure`로 기록해야 한다. PikiLand Web App은 이를 수신하여 인시던트 핑거프린트 상태를 `FAILED`로 변경한다.
+- **PR 메타데이터 계약**: Engine이 Verified PR을 생성할 때 PR 브랜치명은 `pikiland/fix-<fingerprint_hash>`로 생성하고, PR 본문 하단에 `PikiLand Incident Fingerprint: <hash>` 태그를 포함해야 한다. Web App은 `pull_request` Webhook 수신 시 이를 파기/식별하여 핑거프린트 상태를 `PR_CREATED` 및 `RESOLVED`로 전환한다.
+
+### Log Ingestion Pipeline & 1-Time SSH Provisioning
+
+- **1회성 SSH 프로비저닝 (Zero Trust)**: 대시보드 UI에서 EC2 IP, SSH 계정, 1회용 `.pem` 키를 전달받아 원격 EC2에 Fluent Bit 수집기를 자동 설치하고 `fluent-bit.conf`를 주입한다. 완료 후 원격 `authorized_keys` 및 백엔드 메모리/임시 SSH 키 파일은 원천 파기한다.
+- **2단계 에러 필터링 & LLM 진위 검증**:
+  - **1단계 (EC2 현지 필터링)**: EC2 Fluent Bit `grep` 필터 정규식 `(?i)(error|exception|fatal|critical|panic|unhandled|fail|severe|5\d{2}|traceback)`로 1차 선별 전송.
+  - **2단계 (서버 LLM 검증)**: 수신 서버(`POST /api/logs/ingest`)는 `LlmLogClassifierService`를 통해 사용자 입력값(예: 단순 "500" 숫자)을 배제하고 실제 애플리케이션 버그/예외 로그만 진위 판별.
+- **LLM 기반 로그 경로 자동 추론 (`LogPathInferenceService`)**: 저장소 내 주요 설정 파일(`application.yml`, `logback-spring.xml`, `docker-compose.yml`, `pm2.config.js` 등)의 구조를 분석하여 최적의 프로덕션 로그 경로를 자동 추론하여 UI 모달 폼 기본값으로 제공.
+- **설치 저장소 Direct 조회 최적화 (Performance Optimization)**:
+  - 대시보드 저장소 목록 로딩 시 전체 저장소 API(`/user/repos`)를 가져와 후처리 필터링하던 낭비를 전면 제거하고, `/user/installations/{instId}/repositories` API를 direct 호출하여 PikiLand App 권한이 부여된 저장소만 고속 로딩.
+- **GitHub App 전용 설치 완료 페이지 (`setup.html`)**:
+  - 앱 설치 직후 리다이렉트되는 `/setup`, `/install/callback`, `/github/callback` URL에 연결된 전용 완료 안내 페이지(`setup.html`)를 제공하여 연동 저장소 목록 출력 및 **[🚀 Open PikiLand Dashboard]** 버튼 제공.
+
 ## 2. Components
 
 | 컴포넌트 | 책임 |

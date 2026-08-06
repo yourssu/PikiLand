@@ -22,6 +22,7 @@ public class WebhookAppService {
     private final SelfHealingAppService selfHealingAppService;
     private final SystemSettingsRepository systemSettingsRepository;
     private final RepoSettingsRepository repoSettingsRepository;
+    private final com.yourssu.pikiland.domain.port.LogFingerprintRepository logFingerprintRepository;
 
     @Value("${app.github.webhook-secret:}")
     private String webhookSecret;
@@ -32,9 +33,17 @@ public class WebhookAppService {
     public WebhookAppService(SelfHealingAppService selfHealingAppService,
                              SystemSettingsRepository systemSettingsRepository,
                              RepoSettingsRepository repoSettingsRepository) {
+        this(selfHealingAppService, systemSettingsRepository, repoSettingsRepository, null);
+    }
+
+    public WebhookAppService(SelfHealingAppService selfHealingAppService,
+                             SystemSettingsRepository systemSettingsRepository,
+                             RepoSettingsRepository repoSettingsRepository,
+                             @org.springframework.beans.factory.annotation.Autowired(required = false) com.yourssu.pikiland.domain.port.LogFingerprintRepository logFingerprintRepository) {
         this.selfHealingAppService = selfHealingAppService;
         this.systemSettingsRepository = systemSettingsRepository;
         this.repoSettingsRepository = repoSettingsRepository;
+        this.logFingerprintRepository = logFingerprintRepository;
     }
 
     private String getEffectiveWebhookSecret() {
@@ -116,7 +125,10 @@ public class WebhookAppService {
                 System.out.println("[Webhook Workflow] Run ID: " + runId + ", Action: " + action + ", Conclusion: " + conclusion + ", Workflow: " + workflowName);
 
                 if (isPikilandSelfWorkflow(workflowPath, workflowName)) {
-                    System.out.println("[Webhook] Skipping self-healing workflow execution to prevent infinite loop. Run ID: " + runId);
+                    System.out.println("[Webhook] PikiLand self-healing workflow completion detected. Run ID: " + runId + ", Conclusion: " + conclusion);
+                    if ("completed".equals(action) && "failure".equals(conclusion)) {
+                        updateFingerprintStateForRepo(repoFullName, "FAILED", null);
+                    }
                     return true;
                 }
 
@@ -127,6 +139,24 @@ public class WebhookAppService {
                     }
                     System.out.println("[Webhook Action] 🚀 Target Workflow Failure Detected! Run ID: " + runId + ", Repo: " + repoFullName + ", Head Branch: " + headBranch);
                     selfHealingAppService.runSelfHealing(repoFullName, null, "workflow_run", runId, installationId, headBranch, defaultBranch);
+                }
+            } else if ("pull_request".equals(event)) {
+                String action = rootNode.path("action").asText();
+                JsonNode prNode = rootNode.path("pull_request");
+                String headRef = prNode.path("head").path("ref").asText("");
+                String prBody = prNode.path("body").asText("");
+                String prUrl = prNode.path("html_url").asText("");
+                boolean merged = prNode.path("merged").asBoolean(false);
+
+                if (headRef.startsWith("pikiland/") || prBody.contains("PikiLand Incident Fingerprint:")) {
+                    String hash = extractFingerprintHash(headRef, prBody);
+                    System.out.println("[Webhook PR] PikiLand Patch PR Event: action=" + action + ", hash=" + hash + ", url=" + prUrl);
+
+                    if ("opened".equals(action)) {
+                        updateFingerprintStateByHashOrRepo(hash, repoFullName, "PR_CREATED", prUrl);
+                    } else if ("closed".equals(action) && merged) {
+                        updateFingerprintStateByHashOrRepo(hash, repoFullName, "RESOLVED", prUrl);
+                    }
                 }
             } else if ("issues".equals(event)) {
                 String action = rootNode.path("action").asText();
@@ -158,5 +188,48 @@ public class WebhookAppService {
             return true;
         }
         return false;
+    }
+
+    private String extractFingerprintHash(String headRef, String prBody) {
+        if (headRef != null && headRef.startsWith("pikiland/fix-")) {
+            return headRef.substring("pikiland/fix-".length());
+        }
+        if (prBody != null && prBody.contains("PikiLand Incident Fingerprint:")) {
+            int idx = prBody.indexOf("PikiLand Incident Fingerprint:");
+            String sub = prBody.substring(idx + "PikiLand Incident Fingerprint:".length()).trim();
+            int end = sub.indexOf("\n");
+            return (end != -1) ? sub.substring(0, end).trim() : sub.trim();
+        }
+        return null;
+    }
+
+    private void updateFingerprintStateByHashOrRepo(String hash, String repoFullName, String newState, String prUrl) {
+        if (logFingerprintRepository == null) return;
+        if (hash != null) {
+            Optional<com.yourssu.pikiland.domain.model.LogFingerprint> fpOpt = logFingerprintRepository.findByHash(hash);
+            if (fpOpt.isPresent()) {
+                com.yourssu.pikiland.domain.model.LogFingerprint fp = fpOpt.get();
+                if ("PR_CREATED".equals(newState)) fp.markPrCreated(prUrl);
+                else if ("RESOLVED".equals(newState)) fp.markResolved();
+                else if ("FAILED".equals(newState)) fp.markFailed();
+                logFingerprintRepository.save(fp);
+                return;
+            }
+        }
+        updateFingerprintStateForRepo(repoFullName, newState, prUrl);
+    }
+
+    private void updateFingerprintStateForRepo(String repoFullName, String newState, String prUrl) {
+        if (logFingerprintRepository == null || repoFullName == null) return;
+        java.util.List<com.yourssu.pikiland.domain.model.LogFingerprint> list = logFingerprintRepository.findAllByRepository(repoFullName);
+        for (com.yourssu.pikiland.domain.model.LogFingerprint fp : list) {
+            if (fp.getState() == com.yourssu.pikiland.domain.model.LogFingerprint.State.IN_PROGRESS ||
+                fp.getState() == com.yourssu.pikiland.domain.model.LogFingerprint.State.PR_CREATED) {
+                if ("PR_CREATED".equals(newState)) fp.markPrCreated(prUrl);
+                else if ("RESOLVED".equals(newState)) fp.markResolved();
+                else if ("FAILED".equals(newState)) fp.markFailed();
+                logFingerprintRepository.save(fp);
+            }
+        }
     }
 }
