@@ -15,7 +15,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/provision-ec2")
+                .ignoringRequestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/provision-ec2", "/setup", "/install/callback", "/github/callback")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             )
             .authorizeHttpRequests(auth -> auth
@@ -24,6 +24,9 @@ public class SecurityConfig {
             )
             .oauth2Login(oauth -> oauth
                 .defaultSuccessUrl("/dashboard", true)
+                .failureHandler((request, response, exception) -> {
+                    response.sendRedirect("/setup");
+                })
             )
             .logout(logout -> logout
                 .logoutSuccessUrl("/")
