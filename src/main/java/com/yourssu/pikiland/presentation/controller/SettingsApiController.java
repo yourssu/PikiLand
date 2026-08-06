@@ -111,14 +111,11 @@ public class SettingsApiController {
         String[] parts = fullName.split("/", 2);
         if (parts.length < 2 || parts[0].isBlank()) return false;
         String authenticatedUser = oauth2User.getAttribute("login");
-        if (authenticatedUser != null && parts[0].equalsIgnoreCase(authenticatedUser)) {
+        if (parts[0].equalsIgnoreCase(authenticatedUser)) {
             return true;
         }
         // Allow System Admins to manage any repository
-        if (adminSecurityChecker.isAdmin(oauth2User)) {
-            return true;
-        }
+        return adminSecurityChecker.isAdmin(oauth2User);
         // Reject unauthorized users if neither owner nor system admin
-        return false;
     }
 }

@@ -185,10 +185,7 @@ public class WebhookAppService {
         if (workflowPath != null && (workflowPath.endsWith("pikiland.yml") || workflowPath.endsWith("pikiland.yaml"))) {
             return true;
         }
-        if (workflowName != null && workflowName.toLowerCase().contains("pikiland")) {
-            return true;
-        }
-        return false;
+        return workflowName != null && workflowName.toLowerCase().contains("pikiland");
     }
 
     private String extractFingerprintHash(String headRef, String prBody) {

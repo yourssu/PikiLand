@@ -242,7 +242,7 @@ class GithubAppAuthenticatorTest {
         String defaultBranch = "main";
 
         // Get exact YAML content from authenticator via reflection
-        String currentYaml = (String) ReflectionTestUtils.invokeMethod(authenticator, "buildWorkflowYaml");
+        String currentYaml = ReflectionTestUtils.invokeMethod(authenticator, "buildWorkflowYaml");
         String base64Content = Base64.getEncoder().encodeToString(currentYaml.getBytes());
         Map<String, Object> getResponseBody = Map.of(
                 "sha", "exact-matching-sha",
@@ -277,7 +277,7 @@ class GithubAppAuthenticatorTest {
             "9999999999999999999999999999999999999999999999999999999999999999" +
             "9999999999999999999999999999999999999999999999999999999999999999"
         );
-        byte[] converted = (byte[]) ReflectionTestUtils.invokeMethod(authenticator, "convertPkcs1ToPkcs8", (Object) pkcs1Bytes);
+        byte[] converted = ReflectionTestUtils.invokeMethod(authenticator, "convertPkcs1ToPkcs8", (Object) pkcs1Bytes);
         org.junit.jupiter.api.Assertions.assertNotNull(converted);
         org.junit.jupiter.api.Assertions.assertTrue(converted.length > pkcs1Bytes.length);
     }

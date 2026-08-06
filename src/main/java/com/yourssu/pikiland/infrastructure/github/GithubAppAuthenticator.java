@@ -398,7 +398,6 @@ public class GithubAppAuthenticator implements GithubAuthPort {
 
                     System.out.println("[GitHub] Outdated pikiland.yml detected (SHA-256 mismatch) in " + repo + ". Updating to latest workflow template...");
                     updateWorkflowFile(repo, path, sha, yaml, token, defaultBranch);
-                    return;
                 }
             } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
                 System.out.println("[GitHub] pikiland.yml not found in " + repo + ". Installing...");

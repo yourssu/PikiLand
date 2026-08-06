@@ -78,9 +78,7 @@ public class LogTruncator {
         List<String> extraLines = new ArrayList<>();
         for (int[] interval : intervals) {
             extraLines.add("\n--- [Error Context Detected (Middle)] ---");
-            for (int i = interval[0]; i < interval[1]; i++) {
-                extraLines.add(middleLines[i]);
-            }
+            extraLines.addAll(Arrays.asList(middleLines).subList(interval[0], interval[1]));
             extraLines.add("----------------------------------------\n");
         }
 

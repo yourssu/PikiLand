@@ -46,9 +46,6 @@ public class LlmLogClassifierService {
     private boolean isBenignUserInputText(String logContent) {
         String lower = logContent.toLowerCase();
         // If it contains "500" but lacks any Exception, Error, or 'at ' stack trace line, classify as benign input.
-        if (lower.contains("500") && !lower.contains("exception") && !lower.contains("error") && !lower.contains("fatal") && !lower.contains("at ")) {
-            return true;
-        }
-        return false;
+        return lower.contains("500") && !lower.contains("exception") && !lower.contains("error") && !lower.contains("fatal") && !lower.contains("at ");
     }
 }

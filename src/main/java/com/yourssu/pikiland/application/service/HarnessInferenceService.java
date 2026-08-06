@@ -20,7 +20,7 @@ public class HarnessInferenceService {
 
         // 1. Gradle
         if (filenames.contains("build.gradle.kts") || filenames.contains("build.gradle")) {
-            return filenames.contains("gradlew") ? "./gradlew test" : "./gradlew test";
+            return "./gradlew test";
         }
 
         // 2. Maven

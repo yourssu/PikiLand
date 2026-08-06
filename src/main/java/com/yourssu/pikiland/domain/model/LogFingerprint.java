@@ -12,7 +12,7 @@ public class LogFingerprint {
     private State state;
     private int occurrenceCount;
     private String prUrl;
-    private LocalDateTime firstSeenAt;
+    private final LocalDateTime firstSeenAt;
     private LocalDateTime lastSeenAt;
 
     public LogFingerprint(String hash, String repositoryFullName, String normalizedSignature) {
