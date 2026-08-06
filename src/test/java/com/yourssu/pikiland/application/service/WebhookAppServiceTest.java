@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.yourssu.pikiland.domain.port.LogFingerprintRepository;
 import com.yourssu.pikiland.domain.port.RepoSettingsRepository;
 import com.yourssu.pikiland.domain.port.SystemSettingsRepository;
 
@@ -20,6 +21,7 @@ class WebhookAppServiceTest {
     private SelfHealingAppService selfHealingAppService;
     private SystemSettingsRepository systemSettingsRepository;
     private RepoSettingsRepository repoSettingsRepository;
+    private LogFingerprintRepository logFingerprintRepository;
     private WebhookAppService webhookAppService;
 
     @BeforeEach
@@ -27,7 +29,8 @@ class WebhookAppServiceTest {
         selfHealingAppService = Mockito.mock(SelfHealingAppService.class);
         systemSettingsRepository = Mockito.mock(SystemSettingsRepository.class);
         repoSettingsRepository = Mockito.mock(RepoSettingsRepository.class);
-        webhookAppService = new WebhookAppService(selfHealingAppService, systemSettingsRepository, repoSettingsRepository);
+        logFingerprintRepository = Mockito.mock(LogFingerprintRepository.class);
+        webhookAppService = new WebhookAppService(selfHealingAppService, systemSettingsRepository, repoSettingsRepository, logFingerprintRepository);
         ReflectionTestUtils.setField(webhookAppService, "isDebug", true);
     }
 

@@ -8,6 +8,8 @@ import com.yourssu.pikiland.domain.model.HarnessStatus;
 import com.yourssu.pikiland.domain.model.RepoSettings;
 import com.yourssu.pikiland.domain.port.RepoSettingsRepository;
 import com.yourssu.pikiland.application.dto.RepoSettingsDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ import java.util.Optional;
 
 @Service
 public class DashboardAppService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DashboardAppService.class);
 
     private final RepoSettingsRepository repoSettingsRepository;
     private final SystemSettingsRepository systemSettingsRepository;
@@ -269,20 +273,23 @@ public class DashboardAppService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[DashboardAppService] Failed to fetch contents for " + repoFullName + ": " + e.getMessage());
+            logger.error("[DashboardAppService] Failed to fetch contents for {}: {}", repoFullName, e.getMessage());
         }
         return filenames;
     }
 
-    public boolean hasUserAdminOrPushPermission(String accessToken, String repoFullName) {
-        if (accessToken == null || accessToken.isBlank() || repoFullName == null || !repoFullName.contains("/")) {
+    @SuppressWarnings("unchecked")
+    private boolean hasUserAdminOrPushPermission(String repoFullName, String userAccessToken) {
+        if (repoFullName == null || userAccessToken == null) {
             return false;
         }
+
         try {
             HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + accessToken);
+            headers.set("Authorization", "Bearer " + userAccessToken);
             headers.set("Accept", "application/vnd.github+json");
             HttpEntity<Void> entity = new HttpEntity<>(headers);
+
             String url = "https://api.github.com/repos/" + repoFullName;
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url, HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {}
@@ -296,9 +303,8 @@ public class DashboardAppService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[DashboardAppService] Failed to check permissions for " + repoFullName + ": " + e.getMessage());
+            logger.warn("[DashboardAppService] Failed to check permissions for {}: {}", repoFullName, e.getMessage());
         }
         return false;
     }
 }
-

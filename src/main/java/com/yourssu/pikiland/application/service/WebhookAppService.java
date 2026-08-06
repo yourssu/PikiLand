@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourssu.pikiland.domain.model.RepoSettings;
 import com.yourssu.pikiland.domain.model.SystemSettings;
+import com.yourssu.pikiland.domain.port.LogFingerprintRepository;
 import com.yourssu.pikiland.domain.port.RepoSettingsRepository;
 import com.yourssu.pikiland.domain.port.SystemSettingsRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -19,10 +23,12 @@ import java.util.Optional;
 @Service
 public class WebhookAppService {
 
+    private static final Logger logger = LoggerFactory.getLogger(WebhookAppService.class);
+
     private final SelfHealingAppService selfHealingAppService;
     private final SystemSettingsRepository systemSettingsRepository;
     private final RepoSettingsRepository repoSettingsRepository;
-    private final com.yourssu.pikiland.domain.port.LogFingerprintRepository logFingerprintRepository;
+    private final LogFingerprintRepository logFingerprintRepository;
 
     @Value("${app.github.webhook-secret:}")
     private String webhookSecret;
@@ -30,16 +36,11 @@ public class WebhookAppService {
     @Value("${app.debug:false}")
     private boolean isDebug;
 
-    public WebhookAppService(SelfHealingAppService selfHealingAppService,
-                             SystemSettingsRepository systemSettingsRepository,
-                             RepoSettingsRepository repoSettingsRepository) {
-        this(selfHealingAppService, systemSettingsRepository, repoSettingsRepository, null);
-    }
-
+    @Autowired
     public WebhookAppService(SelfHealingAppService selfHealingAppService,
                              SystemSettingsRepository systemSettingsRepository,
                              RepoSettingsRepository repoSettingsRepository,
-                             @org.springframework.beans.factory.annotation.Autowired(required = false) com.yourssu.pikiland.domain.port.LogFingerprintRepository logFingerprintRepository) {
+                             LogFingerprintRepository logFingerprintRepository) {
         this.selfHealingAppService = selfHealingAppService;
         this.systemSettingsRepository = systemSettingsRepository;
         this.repoSettingsRepository = repoSettingsRepository;

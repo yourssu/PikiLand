@@ -2,6 +2,7 @@ package com.yourssu.pikiland.domain.model;
 
 import java.time.LocalDateTime;
 
+@SuppressWarnings("unused")
 public class LogFingerprint {
     public enum State { IN_PROGRESS, PR_CREATED, RESOLVED, FAILED }
 

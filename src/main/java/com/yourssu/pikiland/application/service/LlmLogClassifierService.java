@@ -2,7 +2,6 @@ package com.yourssu.pikiland.application.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.regex.Pattern;
@@ -11,9 +10,6 @@ import java.util.regex.Pattern;
 public class LlmLogClassifierService {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmLogClassifierService.class);
-
-    @Value("${app.debug:false}")
-    private boolean isDebug;
 
     // Pattern to check for genuine stack trace elements or system exception signatures
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile(

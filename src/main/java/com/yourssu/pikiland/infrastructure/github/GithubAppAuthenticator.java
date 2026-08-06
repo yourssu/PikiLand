@@ -4,7 +4,10 @@ import com.yourssu.pikiland.domain.port.GithubAuthPort;
 import com.yourssu.pikiland.domain.port.SystemSettingsRepository;
 import com.yourssu.pikiland.domain.model.SystemSettings;
 import io.jsonwebtoken.Jwts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -29,6 +32,8 @@ import java.util.zip.ZipInputStream;
 
 @Component
 public class GithubAppAuthenticator implements GithubAuthPort {
+
+    private static final Logger logger = LoggerFactory.getLogger(GithubAppAuthenticator.class);
 
     private final String appId;
     private final String privateKeyPath;
@@ -538,7 +543,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             headers.set("Accept", "application/vnd.github+json");
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
             return response.getStatusCode() == HttpStatus.OK && response.getBody() != null && response.getBody().containsKey("id");
         } catch (Exception e) {
             // 404 is normal when App is missing for repo, return false silently
@@ -547,6 +554,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public java.util.Set<String> getInstalledRepositoryFullNames(String userAccessToken) {
         java.util.Set<String> installedRepos = new java.util.HashSet<>();
         if (userAccessToken == null || userAccessToken.isBlank()) {
@@ -561,7 +569,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
 
             // 1. Fetch user's app installations
             String installationsUrl = "https://api.github.com/user/installations";
-            ResponseEntity<Map> resp = restTemplate.exchange(installationsUrl, HttpMethod.GET, entity, Map.class);
+            ResponseEntity<Map<String, Object>> resp = restTemplate.exchange(
+                    installationsUrl, HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
             if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
                 java.util.List<Map<String, Object>> installations = (java.util.List<Map<String, Object>>) resp.getBody().get("installations");
                 if (installations != null) {
@@ -572,7 +582,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                             // 2. Fetch repositories for each installation in batch
                             String repoUrl = "https://api.github.com/user/installations/" + instId + "/repositories?per_page=100";
                             try {
-                                ResponseEntity<Map> repoResp = restTemplate.exchange(repoUrl, HttpMethod.GET, entity, Map.class);
+                                ResponseEntity<Map<String, Object>> repoResp = restTemplate.exchange(
+                                        repoUrl, HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {}
+                                );
                                 if (repoResp.getStatusCode() == HttpStatus.OK && repoResp.getBody() != null) {
                                     java.util.List<Map<String, Object>> reposList = (java.util.List<Map<String, Object>>) repoResp.getBody().get("repositories");
                                     if (reposList != null) {
@@ -585,14 +597,14 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                                     }
                                 }
                             } catch (Exception e) {
-                                System.err.println("[GitHubAuth] Failed to fetch repositories for installation " + instId + ": " + e.getMessage());
+                                logger.error("[GitHubAuth] Failed to fetch repositories for installation {}: {}", instId, e.getMessage());
                             }
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            System.err.println("[GitHubAuth] Failed to batch fetch user app installations: " + e.getMessage());
+            logger.error("[GitHubAuth] Failed to batch fetch user app installations: {}", e.getMessage());
         }
         return installedRepos;
     }
@@ -608,7 +620,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
             headers.set("Accept", "application/vnd.github+json");
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Object idObj = response.getBody().get("id");
                 if (idObj != null) {
@@ -617,7 +631,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[GitHubAuth] Failed to fetch installation token for " + repo + ": " + e.getMessage());
+            logger.error("[GitHubAuth] Failed to fetch installation token for {}: {}", repo, e.getMessage());
         }
         return null;
     }

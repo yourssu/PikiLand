@@ -27,6 +27,7 @@ public class Ec2ProvisionApiController {
         this.logIngestService = logIngestService;
     }
 
+    @SuppressWarnings("unused")
     public static class ProvisionRequest {
         public String repositoryFullName;
         public String ec2Ip;
