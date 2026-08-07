@@ -135,7 +135,7 @@ public class Ec2ProvisionService {
                 Tag             myapp.production
                 Read_from_Head  Off
                 Rotate_Wait     5
-                multiline.parser java, python, go, regex, cri
+                multiline.parser java, python, go, cri, docker
 
             [FILTER]
                 Name            grep
