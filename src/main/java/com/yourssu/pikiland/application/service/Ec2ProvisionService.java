@@ -53,11 +53,18 @@ public class Ec2ProvisionService {
             tempKeyFile = File.createTempFile("pikiland_key_", ".pem");
             Files.writeString(tempKeyFile.toPath(), pemKeyContent, StandardCharsets.UTF_8);
 
+            // Try POSIX permissions first
             try {
                 Set<PosixFilePermission> perms = EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
                 Files.setPosixFilePermissions(tempKeyFile.toPath(), perms);
             } catch (Exception e) {
-                logger.warn("[Ec2Provision] Failed to set POSIX permissions on temp key file (OS unsupported)");
+                logger.warn("[Ec2Provision] POSIX permission setting failed, falling back to chmod");
+            }
+            // Always enforce chmod 600 to guarantee SSH accepts the key (covers Docker/Alpine environments)
+            try {
+                Runtime.getRuntime().exec(new String[]{"chmod", "600", tempKeyFile.getAbsolutePath()}).waitFor();
+            } catch (Exception e) {
+                logger.warn("[Ec2Provision] chmod 600 failed: {}", e.getMessage());
             }
 
             // 2. Generate Fluent Bit configuration content

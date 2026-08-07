@@ -13,10 +13,11 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/settings")
@@ -42,17 +43,6 @@ public class Ec2ProvisionApiController {
         this.logIngestService = logIngestService;
         this.dashboardAppService = dashboardAppService;
         this.authorizedClientService = authorizedClientService;
-    }
-
-    @SuppressWarnings("unused")
-    public static class ProvisionRequest {
-        public String repositoryFullName;
-        public String ec2Ip;
-        public String sshUser;
-        public String logPath;
-        public String pemKey;
-        public String pipelineServerHost;
-        public Integer pipelineServerPort;
     }
 
     @GetMapping("/infer-log-path")
@@ -119,21 +109,49 @@ public class Ec2ProvisionApiController {
         return ResponseEntity.ok(result);
     }
 
-    @PostMapping("/provision-ec2")
-    public ResponseEntity<?> provisionEc2(@RequestBody ProvisionRequest req) {
-        if (req == null || req.repositoryFullName == null || req.ec2Ip == null || req.sshUser == null || req.pemKey == null) {
+    /**
+     * POST /api/settings/provision-ec2
+     *
+     * multipart/form-data 방식으로 PEM 키 파일을 업로드합니다.
+     * 서버 내부에서 chmod 600을 적용하여 SSH 연결 권한 문제를 방지합니다.
+     *
+     * Fields:
+     *   - repositoryFullName (text)
+     *   - ec2Ip              (text)  예: 127.0.0.1:22 또는 1.2.3.4
+     *   - sshUser            (text)
+     *   - logPath            (text, optional)
+     *   - pipelineServerHost (text, optional)
+     *   - pipelineServerPort (text, optional)
+     *   - pemKey             (file)  SSH 개인 키 파일 (.pem)
+     */
+    @PostMapping(value = "/provision-ec2", consumes = "multipart/form-data")
+    public ResponseEntity<?> provisionEc2(
+            @RequestParam("repositoryFullName") String repositoryFullName,
+            @RequestParam("ec2Ip") String ec2Ip,
+            @RequestParam("sshUser") String sshUser,
+            @RequestParam(value = "logPath", required = false) String logPath,
+            @RequestParam(value = "pipelineServerHost", required = false) String pipelineServerHost,
+            @RequestParam(value = "pipelineServerPort", required = false) Integer pipelineServerPort,
+            @RequestParam("pemKey") MultipartFile pemKeyFile) {
+
+        if (repositoryFullName == null || repositoryFullName.isBlank()
+                || ec2Ip == null || ec2Ip.isBlank()
+                || sshUser == null || sshUser.isBlank()
+                || pemKeyFile == null || pemKeyFile.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Required parameters missing"));
         }
 
         try {
+            String pemKeyContent = new String(pemKeyFile.getBytes(), StandardCharsets.UTF_8);
+
             boolean success = ec2ProvisionService.provisionInstance(
-                    req.repositoryFullName,
-                    req.ec2Ip,
-                    req.sshUser,
-                    req.logPath,
-                    req.pemKey,
-                    req.pipelineServerHost,
-                    req.pipelineServerPort != null ? req.pipelineServerPort : 8080,
+                    repositoryFullName,
+                    ec2Ip,
+                    sshUser,
+                    logPath,
+                    pemKeyContent,
+                    pipelineServerHost,
+                    pipelineServerPort != null ? pipelineServerPort : 8080,
                     configuredToken
             );
 
