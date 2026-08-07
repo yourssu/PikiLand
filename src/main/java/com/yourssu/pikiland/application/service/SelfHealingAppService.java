@@ -59,9 +59,10 @@ public class SelfHealingAppService {
             }
 
             // Build inputs for workflow dispatch safely within GitHub 1000-char input limits.
+            // For production_log, log_content is kept empty so the CLI Engine dynamically fetches the 100% full raw log via API.
             Map<String, Object> inputs = new HashMap<>();
             inputs.put("event_type", eventType);
-            inputs.put("log_content", truncatedLog);
+            inputs.put("log_content", "production_log".equals(eventType) ? "" : truncatedLog);
             inputs.put("run_id", runId != null ? runId : "");
             inputs.put("target_branch", targetBranch != null ? targetBranch : defaultBranch);
             inputs.put("slack_webhook_url", settings.getSlackWebhookUrl() != null ? settings.getSlackWebhookUrl() : "");

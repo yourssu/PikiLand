@@ -163,9 +163,16 @@ public class WebhookAppService {
                 String action = rootNode.path("action").asText();
                 if ("opened".equals(action)) {
                     JsonNode issueNode = rootNode.path("issue");
-                    String issueBody = issueNode.path("body").asText();
-                    String issueNumber = issueNode.path("number").asText();
+                    String issueBody = issueNode.path("body").asText("");
+                    String issueNumber = issueNode.path("number").asText("");
+                    String senderLogin = rootNode.path("sender").path("login").asText("");
                     
+                    // Prevent Infinite Loop: Skip self-healing if issue was created by PikiLand itself
+                    if (isPikilandSelfIssue(issueNode, issueBody, senderLogin)) {
+                        System.out.println("[Webhook Notice] Issue #" + issueNumber + " was created by PikiLand. Skipping self-healing to prevent infinite loop.");
+                        return true;
+                    }
+
                     if (settingsOpt.isPresent() && !settingsOpt.get().isActive()) {
                         System.out.println("[Webhook Notice] Repository " + repoFullName + " is INACTIVE in PikiLand. Skipping issue self-healing.");
                         return true;
@@ -186,6 +193,25 @@ public class WebhookAppService {
             return true;
         }
         return workflowName != null && workflowName.toLowerCase().contains("pikiland");
+    }
+
+    private boolean isPikilandSelfIssue(JsonNode issueNode, String issueBody, String senderLogin) {
+        if (issueBody != null && (issueBody.contains("PikiLand AI Self-Healing Engine") || issueBody.contains("Authored by PikiLand") || issueBody.contains("Created automatically by PikiLand"))) {
+            return true;
+        }
+        if (senderLogin != null && senderLogin.toLowerCase().contains("pikiland")) {
+            return true;
+        }
+        JsonNode labelsNode = issueNode.path("labels");
+        if (labelsNode.isArray()) {
+            for (JsonNode label : labelsNode) {
+                String labelName = label.path("name").asText("");
+                if ("pikiland-incident".equalsIgnoreCase(labelName) || labelName.toLowerCase().contains("pikiland")) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private String extractFingerprintHash(String headRef, String prBody) {
