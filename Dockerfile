@@ -2,8 +2,8 @@
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Set Timezone to Asia/Seoul
-RUN apk add --no-cache tzdata && \
+# Install OpenSSH client (ssh, scp), curl, and tzdata
+RUN apk add --no-cache tzdata openssh-client curl && \
     cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
     echo "Asia/Seoul" > /etc/timezone
 

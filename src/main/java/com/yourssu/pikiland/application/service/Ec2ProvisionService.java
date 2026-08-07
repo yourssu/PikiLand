@@ -82,10 +82,10 @@ public class Ec2ProvisionService {
                                    "if ! command -v fluent-bit >/dev/null 2>&1 && ! [ -f /opt/fluent-bit/bin/fluent-bit ]; then " +
                                    "sudo DEBIAN_FRONTEND=noninteractive apt-get update -y && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y fluent-bit; " +
                                    "fi";
-            executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget, installScript);
+            executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", sshTarget, installScript);
 
             // Step 3b: Copy fluent-bit.conf to /tmp
-            executeCommand("scp", "-P", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no",
+            executeCommand("scp", "-P", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
                     tempConfFile.getAbsolutePath(), sshTarget + ":/tmp/fluent-bit.conf");
 
             // Step 3c: Move config, restart service, and enable fluent-bit
@@ -93,7 +93,7 @@ public class Ec2ProvisionService {
                                   "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf && " +
                                   "sudo systemctl restart fluent-bit && " +
                                   "sudo systemctl enable fluent-bit";
-            executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget, remoteScript);
+            executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", sshTarget, remoteScript);
 
             // 4. Update RepoSettings persistence
             RepoSettings settings = repoSettingsRepository.findById(repositoryFullName)
