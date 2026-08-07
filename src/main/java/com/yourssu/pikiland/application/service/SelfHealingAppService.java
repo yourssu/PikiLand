@@ -1,14 +1,17 @@
 package com.yourssu.pikiland.application.service;
 
 import com.yourssu.pikiland.domain.model.RepoSettings;
+import com.yourssu.pikiland.domain.model.SystemSettings;
 import com.yourssu.pikiland.domain.port.*;
 import com.yourssu.pikiland.domain.service.LogTruncator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class SelfHealingAppService {
@@ -16,16 +19,44 @@ public class SelfHealingAppService {
     private final RepoSettingsRepository settingsRepository;
     private final GithubAuthPort githubAuthPort;
     private final LogTruncator logTruncator;
+    private final SystemSettingsRepository systemSettingsRepository;
 
     @Value("${app.server-url:}")
     private String serverUrl;
 
+    @Autowired
     public SelfHealingAppService(RepoSettingsRepository settingsRepository,
                                   GithubAuthPort githubAuthPort,
-                                  LogTruncator logTruncator) {
+                                  LogTruncator logTruncator,
+                                  @Autowired(required = false) SystemSettingsRepository systemSettingsRepository) {
         this.settingsRepository = settingsRepository;
         this.githubAuthPort = githubAuthPort;
         this.logTruncator = logTruncator;
+        this.systemSettingsRepository = systemSettingsRepository;
+    }
+
+    private String getEffectiveServerUrl() {
+        if (serverUrl != null && !serverUrl.isBlank()) {
+            return formatServerUrl(serverUrl);
+        }
+        if (systemSettingsRepository != null) {
+            Optional<SystemSettings> sysOpt = systemSettingsRepository.findGlobalSettings();
+            if (sysOpt.isPresent() && sysOpt.get().getPikilandServerUrl() != null && !sysOpt.get().getPikilandServerUrl().isBlank()) {
+                return formatServerUrl(sysOpt.get().getPikilandServerUrl());
+            }
+        }
+        return "https://pikiland.yourssu.com";
+    }
+
+    private String formatServerUrl(String url) {
+        String trimmed = url.trim();
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+            return "https://" + trimmed;
+        }
+        if (trimmed.startsWith("http://") && !trimmed.contains("localhost") && !trimmed.contains("127.0.0.1")) {
+            return trimmed.replace("http://", "https://");
+        }
+        return trimmed;
     }
 
     @Async
@@ -77,7 +108,7 @@ public class SelfHealingAppService {
                     : (settings.getInferredHarnessCmd() != null ? settings.getInferredHarnessCmd() : "");
             inputs.put("harness_cmd", effectiveHarnessCmd);
             inputs.put("ralph_max_retries", String.valueOf(settings.getRalphMaxRetries() > 0 ? settings.getRalphMaxRetries() : 3));
-            inputs.put("pikiland_server_url", serverUrl != null ? serverUrl : "");
+            inputs.put("pikiland_server_url", getEffectiveServerUrl());
 
 
             // Trigger workflow dispatch on the default branch (where pikiland.yml exists)

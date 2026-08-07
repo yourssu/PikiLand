@@ -7,21 +7,29 @@ public class SystemSettings {
     private String githubClientId;
     private String githubClientSecret;
 
-    // Server-side Only Global AI Credentials (For Log Path, Harness, Log Classifier)
+    // Server-side Only Global Credentials
     private String globalAiBaseUrl;
     private String globalAiApiKey;
     private String globalAiModel;
+    private String pikilandServerUrl;
 
     public SystemSettings() {}
 
     public SystemSettings(String githubAppId, String githubPrivateKeyContent, String githubWebhookSecret,
                           String githubClientId, String githubClientSecret) {
-        this(githubAppId, githubPrivateKeyContent, githubWebhookSecret, githubClientId, githubClientSecret, null, null, null);
+        this(githubAppId, githubPrivateKeyContent, githubWebhookSecret, githubClientId, githubClientSecret, null, null, null, null);
     }
 
     public SystemSettings(String githubAppId, String githubPrivateKeyContent, String githubWebhookSecret,
                           String githubClientId, String githubClientSecret,
                           String globalAiBaseUrl, String globalAiApiKey, String globalAiModel) {
+        this(githubAppId, githubPrivateKeyContent, githubWebhookSecret, githubClientId, githubClientSecret, globalAiBaseUrl, globalAiApiKey, globalAiModel, null);
+    }
+
+    public SystemSettings(String githubAppId, String githubPrivateKeyContent, String githubWebhookSecret,
+                          String githubClientId, String githubClientSecret,
+                          String globalAiBaseUrl, String globalAiApiKey, String globalAiModel,
+                          String pikilandServerUrl) {
         this.githubAppId = githubAppId;
         this.githubPrivateKeyContent = githubPrivateKeyContent;
         this.githubWebhookSecret = githubWebhookSecret;
@@ -30,6 +38,7 @@ public class SystemSettings {
         this.globalAiBaseUrl = globalAiBaseUrl;
         this.globalAiApiKey = globalAiApiKey;
         this.globalAiModel = globalAiModel;
+        this.pikilandServerUrl = pikilandServerUrl;
     }
 
     public String getGithubAppId() {
@@ -94,5 +103,13 @@ public class SystemSettings {
 
     public void setGlobalAiModel(String globalAiModel) {
         this.globalAiModel = globalAiModel;
+    }
+
+    public String getPikilandServerUrl() {
+        return pikilandServerUrl;
+    }
+
+    public void setPikilandServerUrl(String pikilandServerUrl) {
+        this.pikilandServerUrl = pikilandServerUrl;
     }
 }
