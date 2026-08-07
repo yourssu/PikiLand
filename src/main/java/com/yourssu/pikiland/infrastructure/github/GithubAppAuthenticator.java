@@ -489,6 +489,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "    permissions:\n" +
                 "      contents: write\n" +
                 "      pull-requests: write\n" +
+                "      issues: write\n" +
                 "    steps:\n" +
                 "      - name: Checkout Target Repository\n" +
                 "        uses: actions/checkout@v4\n" +
