@@ -57,27 +57,25 @@ public class LogIngestService {
                 continue;
             }
 
-            // Stage 1: LLM Classifier Verification (Fast Rule filter is offloaded to EC2 Fluent Bit)
-            if (!llmClassifierService.isGenuineSystemError(rawLog)) {
-                logger.info("[LogIngest] LLM Classifier rejected log entry.");
-                continue;
-            }
-
-            // Stage 3: Normalization & Error Fingerprinting
+            // Fast Stage: Pre-check if this error fingerprint is already active & IN_PROGRESS in DB.
+            // If already in progress, increment occurrence count immediately without invoking LLM API (saving cost & latency).
             String normalizedSignature = normalizeLogSignature(rawLog);
             String hash = computeSha256(normalizedSignature);
 
             Optional<LogFingerprint> existingOpt = fingerprintRepository.findByHash(hash);
-
-            if (existingOpt.isPresent()) {
+            if (existingOpt.isPresent() && existingOpt.get().getState() == LogFingerprint.State.IN_PROGRESS) {
                 LogFingerprint existing = existingOpt.get();
-                if (existing.getState() == LogFingerprint.State.IN_PROGRESS) {
-                    existing.incrementOccurrence();
-                    fingerprintRepository.save(existing);
-                    logger.info("[LogIngest] Deduplicated error log. Hash: {}, Total Occurrences: {}", hash, existing.getOccurrenceCount());
-                    processedCount++;
-                    continue;
-                }
+                existing.incrementOccurrence();
+                fingerprintRepository.save(existing);
+                logger.info("[LogIngest] Deduplicated active error log (Fast-pass). Hash: {}, Total Occurrences: {}", hash, existing.getOccurrenceCount());
+                processedCount++;
+                continue;
+            }
+
+            // Stage 1: LLM Classifier Verification (For new or un-fingerprinted log entries)
+            if (!llmClassifierService.isGenuineSystemError(rawLog)) {
+                logger.info("[LogIngest] LLM Classifier rejected log entry.");
+                continue;
             }
 
             // Create new or re-opened fingerprint
