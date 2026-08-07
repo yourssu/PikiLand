@@ -20,6 +20,7 @@ server:
   forward-headers-strategy: framework
 
 app:
+  server-url: ${PIKILAND_SERVER_URL:}
   debug: ${PIKILAND_DEBUG:${DEBUG:false}}
   admin:
     users: ${PIKILAND_ADMIN_USERS:}

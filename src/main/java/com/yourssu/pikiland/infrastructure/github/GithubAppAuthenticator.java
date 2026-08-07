@@ -479,6 +479,9 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "      ralph_max_retries:\n" +
                 "        description: 'Ralph Loop max retries cap'\n" +
                 "        required: false\n" +
+                "      pikiland_server_url:\n" +
+                "        description: 'PikiLand Web Server URL (HTTPS Port 443)'\n" +
+                "        required: false\n" +
                 "\n" +
                 "jobs:\n" +
                 "  pikiland-patch:\n" +
@@ -516,6 +519,7 @@ public class GithubAppAuthenticator implements GithubAuthPort {
                 "          PIKILAND_WORKSPACE_PATH: \"${{ github.workspace }}\"\n" +
                 "          PIKILAND_HARNESS_CMD: \"${{ github.event.inputs.harness_cmd }}\"\n" +
                 "          PIKILAND_RALPH_MAX_RETRIES: \"${{ github.event.inputs.ralph_max_retries }}\"\n" +
+                "          PIKILAND_SERVER_URL: \"${{ github.event.inputs.pikiland_server_url }}\"\n" +
                 "          GITHUB_TOKEN: \"${{ secrets.GITHUB_TOKEN }}\"\n" +
                 "          GITHUB_REPOSITORY: \"${{ github.repository }}\"\n" +
                 "          SLACK_WEBHOOK_URL: \"${{ github.event.inputs.slack_webhook_url }}\"\n" +

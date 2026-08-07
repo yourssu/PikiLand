@@ -3,6 +3,7 @@ package com.yourssu.pikiland.application.service;
 import com.yourssu.pikiland.domain.model.RepoSettings;
 import com.yourssu.pikiland.domain.port.*;
 import com.yourssu.pikiland.domain.service.LogTruncator;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,9 @@ public class SelfHealingAppService {
     private final RepoSettingsRepository settingsRepository;
     private final GithubAuthPort githubAuthPort;
     private final LogTruncator logTruncator;
+
+    @Value("${app.server-url:}")
+    private String serverUrl;
 
     public SelfHealingAppService(RepoSettingsRepository settingsRepository,
                                   GithubAuthPort githubAuthPort,
@@ -73,6 +77,7 @@ public class SelfHealingAppService {
                     : (settings.getInferredHarnessCmd() != null ? settings.getInferredHarnessCmd() : "");
             inputs.put("harness_cmd", effectiveHarnessCmd);
             inputs.put("ralph_max_retries", String.valueOf(settings.getRalphMaxRetries() > 0 ? settings.getRalphMaxRetries() : 3));
+            inputs.put("pikiland_server_url", serverUrl != null ? serverUrl : "");
 
 
             // Trigger workflow dispatch on the default branch (where pikiland.yml exists)
