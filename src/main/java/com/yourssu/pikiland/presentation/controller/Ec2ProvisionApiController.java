@@ -45,84 +45,17 @@ public class Ec2ProvisionApiController {
         this.authorizedClientService = authorizedClientService;
     }
 
-    @GetMapping("/infer-log-path")
-    public ResponseEntity<?> inferLogPath(
-            @RequestParam(value = "repo", required = false) String repo,
-            @AuthenticationPrincipal OAuth2User oauth2User) {
-
-        if (repo == null || repo.isBlank()) {
-            String defaultPath = logPathInferenceService.inferLogPath(null, null);
-            return ResponseEntity.ok(Map.of("inferredLogPath", defaultPath));
-        }
-
-        String userToken = null;
-        if (oauth2User != null && authorizedClientService != null) {
-            try {
-                OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient("github", oauth2User.getName());
-                if (client != null && client.getAccessToken() != null) {
-                    userToken = client.getAccessToken().getTokenValue();
-                }
-            } catch (Exception ignored) {}
-        }
-
-        List<String> filenames = (dashboardAppService != null) ? dashboardAppService.fetchRemoteRepoFilenames(repo, userToken) : null;
-        String configFileContent = (dashboardAppService != null) ? dashboardAppService.fetchConfigFileContent(repo, userToken) : null;
-
-        String inferred = logPathInferenceService.inferLogPath(filenames, configFileContent);
-        return ResponseEntity.ok(Map.of("inferredLogPath", inferred));
-    }
-
-    @GetMapping("/incidents")
-    public ResponseEntity<?> getIncidents(@RequestParam(value = "repo", required = false) String repo) {
-        if (logIngestService == null) {
-            return ResponseEntity.ok(java.util.List.of());
-        }
-        if (repo != null && !repo.isBlank()) {
-            return ResponseEntity.ok(logIngestService.getIncidentsForRepository(repo));
-        }
-        return ResponseEntity.ok(java.util.List.of());
-    }
-
-    @GetMapping("/incidents/detail")
-    public ResponseEntity<?> getIncidentDetail(
-            @RequestParam(value = "hash", required = false) String hash,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        if (logIngestService == null || hash == null || hash.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Hash parameter missing"));
-        }
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("status", "error", "message", "Missing or invalid Authorization header"));
-        }
-
-        String token = authHeader.substring(7).trim();
-        Map<String, Object> result = logIngestService.getIncidentDetailMapByHash(hash, token);
-        if (result == null) {
-            return ResponseEntity.notFound().build();
-        }
-        if ("forbidden".equals(result.get("error"))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("status", "error", "message", "Access denied for incident details"));
-        }
-
-        return ResponseEntity.ok(result);
-    }
-
     /**
-     * POST /api/settings/provision-ec2
-     *
-     * multipart/form-data 방식으로 PEM 키 파일을 업로드합니다.
-     * 서버 내부에서 chmod 600을 적용하여 SSH 연결 권한 문제를 방지합니다.
+     * POST /api/settings/provision-ec2  (multipart/form-data)
      *
      * Fields:
      *   - repositoryFullName (text)
-     *   - ec2Ip              (text)  예: 127.0.0.1:22 또는 1.2.3.4
+     *   - ec2Ip              (text)  예: 1.2.3.4 또는 1.2.3.4:22
      *   - sshUser            (text)
      *   - logPath            (text, optional)
      *   - pipelineServerHost (text, optional)
      *   - pipelineServerPort (text, optional)
-     *   - pemKey             (file)  SSH 개인 키 파일 (.pem)
+     *   - pemKey             (file)  SSH 개인 키 파일 (.pem / id_rsa / id_ed25519)
      */
     @PostMapping(value = "/provision-ec2", consumes = "multipart/form-data")
     public ResponseEntity<?> provisionEc2(
@@ -138,25 +71,22 @@ public class Ec2ProvisionApiController {
                 || ec2Ip == null || ec2Ip.isBlank()
                 || sshUser == null || sshUser.isBlank()
                 || pemKeyFile == null || pemKeyFile.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Required parameters missing"));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("status", "error", "message", "Required parameters missing"));
         }
 
         try {
             String pemKeyContent = new String(pemKeyFile.getBytes(), StandardCharsets.UTF_8);
 
             boolean success = ec2ProvisionService.provisionInstance(
-                    repositoryFullName,
-                    ec2Ip,
-                    sshUser,
-                    logPath,
-                    pemKeyContent,
+                    repositoryFullName, ec2Ip, sshUser, logPath, pemKeyContent,
                     pipelineServerHost,
                     pipelineServerPort != null ? pipelineServerPort : 8080,
-                    configuredToken
-            );
+                    configuredToken);
 
             if (success) {
-                return ResponseEntity.ok(Map.of("status", "success", "message", "EC2 Fluent Bit provisioned and SSH key revoked successfully"));
+                return ResponseEntity.ok(Map.of("status", "success",
+                        "message", "EC2 Fluent Bit provisioned and SSH key revoked successfully"));
             } else {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(Map.of("status", "error", "message", "Provisioning failed. Check server logs."));
@@ -165,5 +95,68 @@ public class Ec2ProvisionApiController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("status", "error", "message", e.getMessage()));
         }
+    }
+
+    @GetMapping("/infer-log-path")
+    public ResponseEntity<?> inferLogPath(
+            @RequestParam(value = "repo", required = false) String repo,
+            @AuthenticationPrincipal OAuth2User oauth2User) {
+
+        if (repo == null || repo.isBlank()) {
+            return ResponseEntity.ok(Map.of("inferredLogPath",
+                    logPathInferenceService.inferLogPath(null, null)));
+        }
+
+        String userToken = null;
+        if (oauth2User != null && authorizedClientService != null) {
+            try {
+                OAuth2AuthorizedClient client = authorizedClientService
+                        .loadAuthorizedClient("github", oauth2User.getName());
+                if (client != null && client.getAccessToken() != null) {
+                    userToken = client.getAccessToken().getTokenValue();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        List<String> filenames = (dashboardAppService != null)
+                ? dashboardAppService.fetchRemoteRepoFilenames(repo, userToken) : null;
+        String configFileContent = (dashboardAppService != null)
+                ? dashboardAppService.fetchConfigFileContent(repo, userToken) : null;
+
+        return ResponseEntity.ok(Map.of("inferredLogPath",
+                logPathInferenceService.inferLogPath(filenames, configFileContent)));
+    }
+
+    @GetMapping("/incidents")
+    public ResponseEntity<?> getIncidents(@RequestParam(value = "repo", required = false) String repo) {
+        if (logIngestService == null) return ResponseEntity.ok(List.of());
+        if (repo != null && !repo.isBlank()) {
+            return ResponseEntity.ok(logIngestService.getIncidentsForRepository(repo));
+        }
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/incidents/detail")
+    public ResponseEntity<?> getIncidentDetail(
+            @RequestParam(value = "hash", required = false) String hash,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        if (logIngestService == null || hash == null || hash.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("status", "error", "message", "Hash parameter missing"));
+        }
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("status", "error", "message", "Missing or invalid Authorization header"));
+        }
+
+        String token = authHeader.substring(7).trim();
+        Map<String, Object> result = logIngestService.getIncidentDetailMapByHash(hash, token);
+        if (result == null) return ResponseEntity.notFound().build();
+        if ("forbidden".equals(result.get("error"))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("status", "error", "message", "Access denied for incident details"));
+        }
+        return ResponseEntity.ok(result);
     }
 }
