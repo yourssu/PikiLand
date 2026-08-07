@@ -29,7 +29,7 @@ public class SelfHealingAppService {
         System.out.println("Starting Self-Healing Trigger asynchronously for " + repoName + " on thread: " + Thread.currentThread());
 
         RepoSettings settings = settingsRepository.findById(repoName)
-                .orElseGet(() -> new RepoSettings(repoName, false, null, null, null));
+                .orElseGet(() -> new RepoSettings(repoName, true, null, null, null));
 
         if (!settings.isActive()) {
             System.out.println("PikiLand is disabled for repo: " + repoName + ". Skipping self-healing trigger.");

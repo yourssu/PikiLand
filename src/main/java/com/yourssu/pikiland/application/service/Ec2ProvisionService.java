@@ -77,9 +77,10 @@ public class Ec2ProvisionService {
             }
             String sshTarget = sshUser + "@" + host;
             
-            // Step 3a: Install Fluent Bit if not present
-            String installScript = "if ! command -v fluent-bit >/dev/null 2>&1; then " +
-                                   "curl -fsSL https://fluentbit.io/install.sh | sudo sh || sudo apt-get update && sudo apt-get install -y fluent-bit; " +
+            // Step 3a: Install Fluent Bit if not present (Non-interactive)
+            String installScript = "export DEBIAN_FRONTEND=noninteractive; " +
+                                   "if ! command -v fluent-bit >/dev/null 2>&1 && ! [ -f /opt/fluent-bit/bin/fluent-bit ]; then " +
+                                   "sudo DEBIAN_FRONTEND=noninteractive apt-get update -y && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y fluent-bit; " +
                                    "fi";
             executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget, installScript);
 
@@ -88,7 +89,8 @@ public class Ec2ProvisionService {
                     tempConfFile.getAbsolutePath(), sshTarget + ":/tmp/fluent-bit.conf");
 
             // Step 3c: Move config, restart service, and enable fluent-bit
-            String remoteScript = "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf && " +
+            String remoteScript = "sudo mkdir -p /etc/fluent-bit && " +
+                                  "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf && " +
                                   "sudo systemctl restart fluent-bit && " +
                                   "sudo systemctl enable fluent-bit";
             executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget, remoteScript);
@@ -131,7 +133,7 @@ public class Ec2ProvisionService {
             [FILTER]
                 Name            grep
                 Match           myapp.production
-                Regex           log (?i)(error|exception|fatal|critical|panic|unhandled|fail|severe|5\\d{2}|traceback)
+                Regex           log (error|ERROR|Error|exception|Exception|EXCEPTION|fatal|FATAL|critical|CRITICAL|panic|PANIC|unhandled|Unhandled|UNHANDLED|fail|FAIL|severe|SEVERE|5[0-9][0-9]|traceback|Traceback|NullPointer)
 
             [OUTPUT]
                 Name            http

@@ -19,7 +19,7 @@ public class SecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/incidents", "/api/settings/incidents/detail", "/css/**", "/js/**", "/error", "/", "/setup", "/install/callback", "/github/callback").permitAll()
+                .requestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/provision-ec2", "/api/settings/incidents", "/api/settings/incidents/detail", "/css/**", "/js/**", "/error", "/", "/setup", "/install/callback", "/github/callback").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth -> oauth
