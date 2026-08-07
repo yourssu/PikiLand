@@ -84,10 +84,9 @@ public class Ec2ProvisionService {
             }
             String sshTarget = sshUser + "@" + host;
             
-            // Step 3a: Install Fluent Bit if not present (Non-interactive)
-            String installScript = "export DEBIAN_FRONTEND=noninteractive; " +
-                                   "if ! command -v fluent-bit >/dev/null 2>&1 && ! [ -f /opt/fluent-bit/bin/fluent-bit ]; then " +
-                                   "sudo DEBIAN_FRONTEND=noninteractive apt-get update -y && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y fluent-bit; " +
+            // Step 3a: Install Fluent Bit if not present (official install script)
+            String installScript = "if ! command -v fluent-bit >/dev/null 2>&1 && ! [ -f /opt/fluent-bit/bin/fluent-bit ]; then " +
+                                   "curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh; " +
                                    "fi";
             executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", sshTarget, installScript);
 
