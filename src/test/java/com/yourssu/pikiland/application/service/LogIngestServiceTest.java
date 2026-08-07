@@ -1,6 +1,5 @@
 package com.yourssu.pikiland.application.service;
 
-import com.yourssu.pikiland.domain.model.LogFingerprint;
 import com.yourssu.pikiland.domain.model.RepoSettings;
 import com.yourssu.pikiland.infrastructure.persistence.InMemoryLogFingerprintRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +18,6 @@ import static org.mockito.Mockito.verify;
 
 class LogIngestServiceTest {
 
-    private LlmLogClassifierService llmClassifierService;
     private InMemoryLogFingerprintRepository fingerprintRepository;
     private SelfHealingAppService selfHealingAppService;
     private com.yourssu.pikiland.domain.port.RepoSettingsRepository repoSettingsRepository;
@@ -27,7 +25,6 @@ class LogIngestServiceTest {
 
     @BeforeEach
     void setUp() {
-        llmClassifierService = new LlmLogClassifierService();
         fingerprintRepository = new InMemoryLogFingerprintRepository();
         selfHealingAppService = Mockito.mock(SelfHealingAppService.class);
         repoSettingsRepository = Mockito.mock(com.yourssu.pikiland.domain.port.RepoSettingsRepository.class);
@@ -36,7 +33,7 @@ class LogIngestServiceTest {
         Mockito.when(repoSettingsRepository.findAll()).thenReturn(List.of(repo));
         Mockito.when(repoSettingsRepository.findById("yourssu/PikiLand")).thenReturn(Optional.of(repo));
 
-        logIngestService = new LogIngestService(llmClassifierService, fingerprintRepository, selfHealingAppService, repoSettingsRepository);
+        logIngestService = new LogIngestService(fingerprintRepository, selfHealingAppService, repoSettingsRepository);
     }
 
     @Test
@@ -60,9 +57,9 @@ class LogIngestServiceTest {
     }
 
     @Test
-    @DisplayName("단순 사용자 입력값('숫자 500 포함')은 LLM 검증으로 필터링되어 트리거되지 않는다.")
+    @DisplayName("에러 키워드가 없는 일반 정보성 로그는 규칙 기반 검증으로 필터링되어 트리거되지 않는다.")
     void processIngestedLogs_benignInputFiltered() {
-        String benignLog = "User typed input: 500 items selected";
+        String benignLog = "User logged in successfully at 10:00 AM";
         List<Map<String, Object>> payloads = List.of(Map.of("log", benignLog));
 
         int count = logIngestService.processIngestedLogs("yourssu/PikiLand", payloads);

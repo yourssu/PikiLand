@@ -21,18 +21,17 @@ public class LogIngestService {
 
     private static final Logger logger = LoggerFactory.getLogger(LogIngestService.class);
 
-    private static final Pattern FAST_ERROR_PATTERN = Pattern.compile("(?i)(ERROR|EXCEPTION|FATAL|CRITICAL|5\\d{2})");
+    private static final Pattern RULE_ERROR_PATTERN = Pattern.compile(
+        "(?i)(ERROR|EXCEPTION|FATAL|CRITICAL|PANIC|UNHANDLED|FAIL|SEVERE|TRACEBACK|NULLPOINTER|STACKTRACE|STATUSCODE=5|HTTP/1\\.[01] 5|HTTP/2 5|\\[5\\d{2}\\])"
+    );
 
-    private final LlmLogClassifierService llmClassifierService;
     private final LogFingerprintRepository fingerprintRepository;
     private final SelfHealingAppService selfHealingAppService;
     private final RepoSettingsRepository repoSettingsRepository;
 
-    public LogIngestService(LlmLogClassifierService llmClassifierService,
-                            LogFingerprintRepository fingerprintRepository,
+    public LogIngestService(LogFingerprintRepository fingerprintRepository,
                             SelfHealingAppService selfHealingAppService,
                             RepoSettingsRepository repoSettingsRepository) {
-        this.llmClassifierService = llmClassifierService;
         this.fingerprintRepository = fingerprintRepository;
         this.selfHealingAppService = selfHealingAppService;
         this.repoSettingsRepository = repoSettingsRepository;
@@ -57,8 +56,14 @@ public class LogIngestService {
                 continue;
             }
 
+            // Stage 1: Rule-based Error Verification
+            if (!isGenuineError(rawLog)) {
+                logger.info("[LogIngest] Log entry rejected (does not match error signature).");
+                continue;
+            }
+
             // Fast Stage: Pre-check if this error fingerprint is already active & IN_PROGRESS in DB.
-            // If already in progress, increment occurrence count immediately without invoking LLM API (saving cost & latency).
+            // If already in progress, increment occurrence count immediately without triggering new workflow.
             String normalizedSignature = normalizeLogSignature(rawLog);
             String hash = computeSha256(normalizedSignature);
 
@@ -72,25 +77,23 @@ public class LogIngestService {
                 continue;
             }
 
-            // Stage 1: LLM Classifier Verification (For new or un-fingerprinted log entries)
-            if (!llmClassifierService.isGenuineSystemError(rawLog)) {
-                logger.info("[LogIngest] LLM Classifier rejected log entry.");
-                continue;
-            }
-
             // Create new or re-opened fingerprint
             LogFingerprint fingerprint = new LogFingerprint(hash, repoFullName, normalizedSignature, rawLog);
             fingerprintRepository.save(fingerprint);
 
-            logger.info("[LogIngest] 🚀 Genuine Error Detected! Triggering Self-Healing for Repo: '{}', Hash: {}", repoFullName, hash);
+            logger.info("[LogIngest] 🚀 Genuine Error Detected via Rule Matching! Triggering Self-Healing for Repo: '{}', Hash: {}", repoFullName, hash);
 
             // Trigger PikiLand Self-Healing Pipeline
-            // Installation ID defaults to 0 (or configured installation token)
             selfHealingAppService.runSelfHealing(repoFullName, rawLog, "production_log", hash, 0L, "main", "main");
             processedCount++;
         }
 
         return processedCount;
+    }
+
+    public boolean isGenuineError(String rawLog) {
+        if (rawLog == null || rawLog.isBlank()) return false;
+        return RULE_ERROR_PATTERN.matcher(rawLog).find();
     }
 
     public String normalizeLogSignature(String rawLog) {

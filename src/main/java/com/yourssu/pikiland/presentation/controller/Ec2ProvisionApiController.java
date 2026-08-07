@@ -3,7 +3,6 @@ package com.yourssu.pikiland.presentation.controller;
 import com.yourssu.pikiland.application.service.DashboardAppService;
 import com.yourssu.pikiland.application.service.Ec2ProvisionService;
 import com.yourssu.pikiland.application.service.LogIngestService;
-import com.yourssu.pikiland.application.service.LogPathInferenceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -24,7 +23,6 @@ import java.util.Map;
 public class Ec2ProvisionApiController {
 
     private final Ec2ProvisionService ec2ProvisionService;
-    private final LogPathInferenceService logPathInferenceService;
     private final LogIngestService logIngestService;
     private final DashboardAppService dashboardAppService;
     private final OAuth2AuthorizedClientService authorizedClientService;
@@ -34,12 +32,10 @@ public class Ec2ProvisionApiController {
 
     @Autowired
     public Ec2ProvisionApiController(Ec2ProvisionService ec2ProvisionService,
-                                     LogPathInferenceService logPathInferenceService,
                                      @Autowired(required = false) LogIngestService logIngestService,
                                      @Autowired(required = false) DashboardAppService dashboardAppService,
                                      @Autowired(required = false) OAuth2AuthorizedClientService authorizedClientService) {
         this.ec2ProvisionService = ec2ProvisionService;
-        this.logPathInferenceService = logPathInferenceService;
         this.logIngestService = logIngestService;
         this.dashboardAppService = dashboardAppService;
         this.authorizedClientService = authorizedClientService;
@@ -123,30 +119,7 @@ public class Ec2ProvisionApiController {
     public ResponseEntity<?> inferLogPath(
             @RequestParam(value = "repo", required = false) String repo,
             @AuthenticationPrincipal OAuth2User oauth2User) {
-
-        if (repo == null || repo.isBlank()) {
-            return ResponseEntity.ok(Map.of("inferredLogPath",
-                    logPathInferenceService.inferLogPath(null, null)));
-        }
-
-        String userToken = null;
-        if (oauth2User != null && authorizedClientService != null) {
-            try {
-                OAuth2AuthorizedClient client = authorizedClientService
-                        .loadAuthorizedClient("github", oauth2User.getName());
-                if (client != null && client.getAccessToken() != null) {
-                    userToken = client.getAccessToken().getTokenValue();
-                }
-            } catch (Exception ignored) {}
-        }
-
-        List<String> filenames = (dashboardAppService != null)
-                ? dashboardAppService.fetchRemoteRepoFilenames(repo, userToken) : null;
-        String configFileContent = (dashboardAppService != null)
-                ? dashboardAppService.fetchConfigFileContent(repo, userToken) : null;
-
-        return ResponseEntity.ok(Map.of("inferredLogPath",
-                logPathInferenceService.inferLogPath(filenames, configFileContent)));
+        return ResponseEntity.ok(Map.of("inferredLogPath", "/var/log/app.log"));
     }
 
     @GetMapping("/incidents")

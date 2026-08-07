@@ -82,11 +82,8 @@ public class LogReceiverController {
                     Map<String, Object> map = objectMapper.readValue(strPayload, Map.class);
                     payloads.add(map);
                 } else {
-                    for (String line : strPayload.split("\n")) {
-                        if (!line.isBlank()) {
-                            payloads.add(Map.of("log", line));
-                        }
-                    }
+                    // Preserve full multiline log context (preceding lines + error stack trace)
+                    payloads.add(Map.of("log", strPayload));
                 }
             }
 

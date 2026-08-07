@@ -76,7 +76,7 @@ class DashboardAppServiceTest {
     @DisplayName("updateRepoSettings - 저장소가 활성화(active=true)로 전환되고 하네스 커맨드가 미설정이면 자동 추론을 수행한다")
     void updateRepoSettings_WhenActiveAndNoHarnessCmd_TriggersAutoInference() {
         String repo = "owner/java-app";
-        Mockito.doReturn(Arrays.asList("build.gradle.kts", "src"))
+        Mockito.doReturn(Arrays.asList("build.gradle.kts", "gradlew", "src"))
                 .when(dashboardAppService).fetchRemoteRepoFilenames(repo, "token");
         when(repoSettingsRepository.findById(repo))
                 .thenReturn(Optional.of(new RepoSettings(repo, false, "", "", "")));
