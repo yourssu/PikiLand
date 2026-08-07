@@ -42,7 +42,7 @@ public class Ec2ProvisionService {
 
         String effectiveLogPath = (logPath != null && !logPath.isBlank()) ? logPath : "/var/log/production/*.log";
         String effectiveHost = (pipelineServerHost != null && !pipelineServerHost.isBlank()) ? pipelineServerHost : "localhost";
-        int effectivePort = pipelineServerPort > 0 ? pipelineServerPort : 8080;
+        int effectivePort = pipelineServerPort > 0 ? pipelineServerPort : 443;
         String token = (bearerToken != null && !bearerToken.isBlank()) ? bearerToken : "your_secure_agent_token_here";
 
         File tempKeyFile = null;
@@ -150,6 +150,7 @@ public class Ec2ProvisionService {
                 Header          Authorization Bearer %s
                 Header          X-Pikiland-Repo %s
                 Format          json
+                json_array      On
                 tls             %s
                 tls.verify      %s
                 net.keepalive   On

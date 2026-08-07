@@ -65,7 +65,8 @@ public class Ec2ProvisionApiController {
             @RequestParam(value = "logPath", required = false) String logPath,
             @RequestParam(value = "pipelineServerHost", required = false) String pipelineServerHost,
             @RequestParam(value = "pipelineServerPort", required = false) Integer pipelineServerPort,
-            @RequestParam("pemKey") MultipartFile pemKeyFile) {
+            @RequestParam("pemKey") MultipartFile pemKeyFile,
+            jakarta.servlet.http.HttpServletRequest request) {
 
         if (repositoryFullName == null || repositoryFullName.isBlank()
                 || ec2Ip == null || ec2Ip.isBlank()
@@ -78,11 +79,32 @@ public class Ec2ProvisionApiController {
         try {
             String pemKeyContent = new String(pemKeyFile.getBytes(), StandardCharsets.UTF_8);
 
+            // Auto-detect PikiLand server domain/host and port if not specified
+            String effectiveHost = pipelineServerHost;
+            if (effectiveHost == null || effectiveHost.isBlank()) {
+                String forwardedHost = request.getHeader("X-Forwarded-Host");
+                if (forwardedHost != null && !forwardedHost.isBlank()) {
+                    effectiveHost = forwardedHost.split(",")[0].trim();
+                } else {
+                    effectiveHost = request.getHeader("Host");
+                    if (effectiveHost != null && effectiveHost.contains(":")) {
+                        effectiveHost = effectiveHost.split(":")[0];
+                    }
+                }
+                if (effectiveHost == null || effectiveHost.isBlank()) {
+                    effectiveHost = request.getServerName();
+                }
+            }
+
+            String forwardedProto = request.getHeader("X-Forwarded-Proto");
+            boolean isHttps = "https".equalsIgnoreCase(forwardedProto) || request.isSecure();
+            int effectivePort = (pipelineServerPort != null && pipelineServerPort > 0)
+                    ? pipelineServerPort
+                    : (isHttps ? 443 : (request.getServerPort() > 0 ? request.getServerPort() : 443));
+
             boolean success = ec2ProvisionService.provisionInstance(
                     repositoryFullName, ec2Ip, sshUser, logPath, pemKeyContent,
-                    pipelineServerHost,
-                    pipelineServerPort != null ? pipelineServerPort : 8080,
-                    configuredToken);
+                    effectiveHost, effectivePort, configuredToken);
 
             if (success) {
                 return ResponseEntity.ok(Map.of("status", "success",
