@@ -151,6 +151,10 @@ function loadSystemSettings() {
             document.getElementById('sys-githubClientId').value = data.githubClientId || '';
             document.getElementById('sys-githubClientSecret').value = data.githubClientSecret || '';
             document.getElementById('sys-githubPrivateKeyContent').value = data.githubPrivateKeyContent || '';
+
+            if (document.getElementById('sys-globalAiBaseUrl')) document.getElementById('sys-globalAiBaseUrl').value = data.globalAiBaseUrl || '';
+            if (document.getElementById('sys-globalAiApiKey')) document.getElementById('sys-globalAiApiKey').value = data.globalAiApiKey || '';
+            if (document.getElementById('sys-globalAiModel')) document.getElementById('sys-globalAiModel').value = data.globalAiModel || '';
             
             const statusEl = document.getElementById('pem-file-status');
             if (statusEl && data.githubPrivateKeyContent && data.githubPrivateKeyContent.trim().length > 0) {
@@ -170,7 +174,10 @@ function saveSystemSettings() {
         githubWebhookSecret: document.getElementById('sys-githubWebhookSecret').value,
         githubClientId: document.getElementById('sys-githubClientId').value,
         githubClientSecret: document.getElementById('sys-githubClientSecret').value,
-        githubPrivateKeyContent: document.getElementById('sys-githubPrivateKeyContent').value
+        githubPrivateKeyContent: document.getElementById('sys-githubPrivateKeyContent').value,
+        globalAiBaseUrl: document.getElementById('sys-globalAiBaseUrl') ? document.getElementById('sys-globalAiBaseUrl').value : '',
+        globalAiApiKey: document.getElementById('sys-globalAiApiKey') ? document.getElementById('sys-globalAiApiKey').value : '',
+        globalAiModel: document.getElementById('sys-globalAiModel') ? document.getElementById('sys-globalAiModel').value : ''
     };
 
     fetch('/api/settings/system', {

@@ -47,13 +47,16 @@ public class DashboardAppService {
 
     public SystemSettingsDto getSystemSettings() {
         SystemSettings s = systemSettingsRepository.findGlobalSettings()
-                .orElseGet(() -> new SystemSettings("", "", "", "", ""));
+                .orElseGet(() -> new SystemSettings("", "", "", "", "", "", "", ""));
         return new SystemSettingsDto(
                 s.getGithubAppId(),
                 s.getGithubPrivateKeyContent(),
                 s.getGithubWebhookSecret(),
                 s.getGithubClientId(),
-                s.getGithubClientSecret()
+                s.getGithubClientSecret(),
+                s.getGlobalAiBaseUrl(),
+                s.getGlobalAiApiKey(),
+                s.getGlobalAiModel()
         );
     }
 
@@ -63,7 +66,10 @@ public class DashboardAppService {
                 dto.getGithubPrivateKeyContent(),
                 dto.getGithubWebhookSecret(),
                 dto.getGithubClientId(),
-                dto.getGithubClientSecret()
+                dto.getGithubClientSecret(),
+                dto.getGlobalAiBaseUrl(),
+                dto.getGlobalAiApiKey(),
+                dto.getGlobalAiModel()
         );
         systemSettingsRepository.saveGlobalSettings(s);
     }
@@ -306,5 +312,46 @@ public class DashboardAppService {
             logger.warn("[DashboardAppService] Failed to check permissions for {}: {}", repoFullName, e.getMessage());
         }
         return false;
+    }
+
+    public String fetchConfigFileContent(String repoFullName, String accessToken) {
+        if (repoFullName == null || !repoFullName.contains("/")) {
+            return null;
+        }
+
+        String effectiveToken = accessToken;
+        if (effectiveToken == null || effectiveToken.isBlank()) {
+            if (githubAuthPort != null) {
+                effectiveToken = githubAuthPort.getInstallationAccessTokenForRepo(repoFullName);
+            }
+        }
+
+        if (effectiveToken == null || effectiveToken.isBlank()) {
+            return null;
+        }
+
+        String[] candidatePaths = {
+            "src/main/resources/application.yml",
+            "src/main/resources/application.properties",
+            "docker-compose.yml",
+            "pm2.config.js"
+        };
+
+        for (String path : candidatePaths) {
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", "Bearer " + effectiveToken);
+                headers.set("Accept", "application/vnd.github.raw");
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+                String url = "https://api.github.com/repos/" + repoFullName + "/contents/" + path;
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                    return response.getBody();
+                }
+            } catch (Exception ignored) {
+                // file missing, try next candidate
+            }
+        }
+        return null;
     }
 }

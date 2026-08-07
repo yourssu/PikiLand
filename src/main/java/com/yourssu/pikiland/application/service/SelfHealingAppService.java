@@ -44,12 +44,17 @@ public class SelfHealingAppService {
             System.out.println("Ensuring PikiLand workflow is installed on branch: " + defaultBranch);
             githubAuthPort.installWorkflowIfMissing(repoName, token, defaultBranch);
 
-            // Build inputs for workflow dispatch.
-            // Note: log_content is left empty to prevent GitHub Workflow Dispatch API 422 error (1000-char input limit).
-            // PikiLand CLI will download the full logs or issue body directly using run_id and event_type.
+            String truncatedLog = "";
+            if (rawLogOrIssueBody != null && !rawLogOrIssueBody.isBlank()) {
+                truncatedLog = rawLogOrIssueBody.length() > 800
+                        ? rawLogOrIssueBody.substring(0, 800) + "\n...[truncated for workflow dispatch]"
+                        : rawLogOrIssueBody;
+            }
+
+            // Build inputs for workflow dispatch safely within GitHub 1000-char input limits.
             Map<String, Object> inputs = new HashMap<>();
             inputs.put("event_type", eventType);
-            inputs.put("log_content", "");
+            inputs.put("log_content", truncatedLog);
             inputs.put("run_id", runId != null ? runId : "");
             inputs.put("target_branch", targetBranch != null ? targetBranch : defaultBranch);
             inputs.put("slack_webhook_url", settings.getSlackWebhookUrl() != null ? settings.getSlackWebhookUrl() : "");

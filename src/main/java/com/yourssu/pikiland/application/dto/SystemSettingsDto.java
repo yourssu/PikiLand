@@ -7,15 +7,29 @@ public class SystemSettingsDto {
     private String githubClientId;
     private String githubClientSecret;
 
+    // Server-side Only Global AI Credentials
+    private String globalAiBaseUrl;
+    private String globalAiApiKey;
+    private String globalAiModel;
+
     public SystemSettingsDto() {}
 
     public SystemSettingsDto(String githubAppId, String githubPrivateKeyContent, String githubWebhookSecret,
                              String githubClientId, String githubClientSecret) {
+        this(githubAppId, githubPrivateKeyContent, githubWebhookSecret, githubClientId, githubClientSecret, null, null, null);
+    }
+
+    public SystemSettingsDto(String githubAppId, String githubPrivateKeyContent, String githubWebhookSecret,
+                             String githubClientId, String githubClientSecret,
+                             String globalAiBaseUrl, String globalAiApiKey, String globalAiModel) {
         this.githubAppId = githubAppId;
         this.githubPrivateKeyContent = githubPrivateKeyContent;
         this.githubWebhookSecret = githubWebhookSecret;
         this.githubClientId = githubClientId;
         this.githubClientSecret = githubClientSecret;
+        this.globalAiBaseUrl = globalAiBaseUrl;
+        this.globalAiApiKey = globalAiApiKey;
+        this.globalAiModel = globalAiModel;
     }
 
     public String getGithubAppId() {
@@ -56,5 +70,29 @@ public class SystemSettingsDto {
 
     public void setGithubClientSecret(String githubClientSecret) {
         this.githubClientSecret = githubClientSecret;
+    }
+
+    public String getGlobalAiBaseUrl() {
+        return globalAiBaseUrl;
+    }
+
+    public void setGlobalAiBaseUrl(String globalAiBaseUrl) {
+        this.globalAiBaseUrl = globalAiBaseUrl;
+    }
+
+    public String getGlobalAiApiKey() {
+        return globalAiApiKey;
+    }
+
+    public void setGlobalAiApiKey(String globalAiApiKey) {
+        this.globalAiApiKey = globalAiApiKey;
+    }
+
+    public String getGlobalAiModel() {
+        return globalAiModel;
+    }
+
+    public void setGlobalAiModel(String globalAiModel) {
+        this.globalAiModel = globalAiModel;
     }
 }

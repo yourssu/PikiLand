@@ -9,23 +9,29 @@ public class LogFingerprint {
     private final String hash;
     private final String repositoryFullName;
     private final String normalizedSignature;
+    private final String rawLog;
     private State state;
     private int occurrenceCount;
     private String prUrl;
     private final LocalDateTime firstSeenAt;
     private LocalDateTime lastSeenAt;
 
-    public LogFingerprint(String hash, String repositoryFullName, String normalizedSignature) {
+    public LogFingerprint(String hash, String repositoryFullName, String normalizedSignature, String rawLog) {
         if (hash == null || hash.isBlank()) {
             throw new IllegalArgumentException("Hash cannot be null or blank");
         }
         this.hash = hash;
         this.repositoryFullName = repositoryFullName != null ? repositoryFullName : "";
         this.normalizedSignature = normalizedSignature != null ? normalizedSignature : "";
+        this.rawLog = rawLog != null ? rawLog : "";
         this.state = State.IN_PROGRESS;
         this.occurrenceCount = 1;
         this.firstSeenAt = LocalDateTime.now();
         this.lastSeenAt = LocalDateTime.now();
+    }
+
+    public LogFingerprint(String hash, String repositoryFullName, String normalizedSignature) {
+        this(hash, repositoryFullName, normalizedSignature, normalizedSignature);
     }
 
     public void incrementOccurrence() {
@@ -63,6 +69,10 @@ public class LogFingerprint {
 
     public String getNormalizedSignature() {
         return normalizedSignature;
+    }
+
+    public String getRawLog() {
+        return rawLog;
     }
 
     public State getState() {

@@ -31,7 +31,10 @@ public class SystemSettingsRepositoryImpl implements SystemSettingsRepository {
                 entity.getGithubPrivateKeyContent(),
                 entity.getGithubWebhookSecret(),
                 entity.getGithubClientId(),
-                entity.getGithubClientSecret()
+                entity.getGithubClientSecret(),
+                entity.getGlobalAiBaseUrl(),
+                entity.getGlobalAiApiKey(),
+                entity.getGlobalAiModel()
         );
     }
 
@@ -42,7 +45,10 @@ public class SystemSettingsRepositoryImpl implements SystemSettingsRepository {
                 domain.getGithubPrivateKeyContent(),
                 domain.getGithubWebhookSecret(),
                 domain.getGithubClientId(),
-                domain.getGithubClientSecret()
+                domain.getGithubClientSecret(),
+                domain.getGlobalAiBaseUrl(),
+                domain.getGlobalAiApiKey(),
+                domain.getGlobalAiModel()
         );
     }
 }

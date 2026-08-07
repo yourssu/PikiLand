@@ -15,11 +15,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/provision-ec2", "/setup", "/install/callback", "/github/callback")
+                .ignoringRequestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/provision-ec2", "/api/settings/incidents", "/api/settings/incidents/detail", "/setup", "/install/callback", "/github/callback")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/css/**", "/js/**", "/error", "/", "/setup", "/install/callback", "/github/callback").permitAll()
+                .requestMatchers("/webhook", "/webhook/**", "/api/webhook", "/api/webhook/**", "/api/logs/**", "/api/settings/incidents", "/api/settings/incidents/detail", "/css/**", "/js/**", "/error", "/", "/setup", "/install/callback", "/github/callback").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth -> oauth

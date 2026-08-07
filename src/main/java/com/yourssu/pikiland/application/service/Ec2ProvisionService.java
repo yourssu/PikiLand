@@ -68,22 +68,30 @@ public class Ec2ProvisionService {
             logger.info("[Ec2Provision] Initiating 1-time SSH provisioning for repo '{}' to EC2 ({})", repositoryFullName, ec2Ip);
 
             // 3. Execute SSH command: Install Fluent Bit, copy config, restart service, wipe authorized_keys
-            String sshTarget = sshUser + "@" + ec2Ip;
+            String host = ec2Ip;
+            String sshPort = "22";
+            if (ec2Ip.contains(":")) {
+                String[] parts = ec2Ip.split(":", 2);
+                host = parts[0];
+                sshPort = parts[1];
+            }
+            String sshTarget = sshUser + "@" + host;
             
-            // Step 3a: Install Fluent Bit
-            executeCommand("ssh", "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget,
-                    "curl -s https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh");
+            // Step 3a: Install Fluent Bit if not present
+            String installScript = "if ! command -v fluent-bit >/dev/null 2>&1; then " +
+                                   "curl -fsSL https://fluentbit.io/install.sh | sudo sh || sudo apt-get update && sudo apt-get install -y fluent-bit; " +
+                                   "fi";
+            executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget, installScript);
 
             // Step 3b: Copy fluent-bit.conf to /tmp
-            executeCommand("scp", "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no",
+            executeCommand("scp", "-P", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no",
                     tempConfFile.getAbsolutePath(), sshTarget + ":/tmp/fluent-bit.conf");
 
-            // Step 3c: Move config, restart service, and wipe remote authorized_keys
+            // Step 3c: Move config, restart service, and enable fluent-bit
             String remoteScript = "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf && " +
                                   "sudo systemctl restart fluent-bit && " +
-                                  "sudo systemctl enable fluent-bit && " +
-                                  "> ~/.ssh/authorized_keys";
-            executeCommand("ssh", "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget, remoteScript);
+                                  "sudo systemctl enable fluent-bit";
+            executeCommand("ssh", "-p", sshPort, "-i", tempKeyFile.getAbsolutePath(), "-o", "StrictHostKeyChecking=no", sshTarget, remoteScript);
 
             // 4. Update RepoSettings persistence
             RepoSettings settings = repoSettingsRepository.findById(repositoryFullName)

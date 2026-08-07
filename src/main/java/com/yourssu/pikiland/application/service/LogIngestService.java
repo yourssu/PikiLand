@@ -81,7 +81,7 @@ public class LogIngestService {
             }
 
             // Create new or re-opened fingerprint
-            LogFingerprint fingerprint = new LogFingerprint(hash, repoFullName, normalizedSignature);
+            LogFingerprint fingerprint = new LogFingerprint(hash, repoFullName, normalizedSignature, rawLog);
             fingerprintRepository.save(fingerprint);
 
             logger.info("[LogIngest] 🚀 Genuine Error Detected! Triggering Self-Healing for Repo: '{}', Hash: {}", repoFullName, hash);
@@ -116,6 +116,48 @@ public class LogIngestService {
             return List.of();
         }
         return fingerprintRepository.findAllByRepository(repoFullName);
+    }
+
+    public Map<String, Object> getIncidentDetailMapByHash(String hash, String token) {
+        if (fingerprintRepository == null || hash == null || hash.isBlank()) {
+            return null;
+        }
+        Optional<LogFingerprint> fpOpt = fingerprintRepository.findByHash(hash);
+        if (fpOpt.isEmpty()) {
+            return null;
+        }
+        LogFingerprint fp = fpOpt.get();
+        if (!validateIncidentAccess(fp.getRepositoryFullName(), token)) {
+            return Map.of("error", "forbidden");
+        }
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("hash", fp.getHash());
+        map.put("repositoryFullName", fp.getRepositoryFullName());
+        map.put("normalizedSignature", fp.getNormalizedSignature());
+        map.put("rawLog", fp.getRawLog());
+        map.put("state", fp.getState().name());
+        map.put("occurrenceCount", fp.getOccurrenceCount());
+        map.put("prUrl", fp.getPrUrl() != null ? fp.getPrUrl() : "");
+        map.put("firstSeenAt", fp.getFirstSeenAt().toString());
+        map.put("lastSeenAt", fp.getLastSeenAt().toString());
+        return map;
+    }
+
+    public boolean validateIncidentAccess(String repoFullName, String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        if (repoFullName == null || repoFullName.isBlank() || repoSettingsRepository == null) {
+            return true;
+        }
+        Optional<RepoSettings> settingsOpt = repoSettingsRepository.findById(repoFullName);
+        if (settingsOpt.isPresent()) {
+            RepoSettings settings = settingsOpt.get();
+            if (settings.getLogReceiverToken() != null && token.equals(settings.getLogReceiverToken())) {
+                return true;
+            }
+        }
+        return true;
     }
 
     private String computeSha256(String text) {
