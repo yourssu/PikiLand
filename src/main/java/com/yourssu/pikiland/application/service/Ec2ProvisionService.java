@@ -150,11 +150,11 @@ public class Ec2ProvisionService {
                 Header          Authorization Bearer %s
                 Header          X-Pikiland-Repo %s
                 Format          json
-                json_array      On
                 tls             %s
                 tls.verify      Off
+                tls.vhost       %s
                 net.keepalive   On
-            """.formatted(logPath, host, port, token, repoName, tlsSetting, tlsSetting);
+            """.formatted(logPath, host, port, token, repoName, tlsSetting, host);
     }
 
     private void executeCommand(String... command) throws Exception {

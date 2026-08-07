@@ -37,8 +37,15 @@ public class SelfHealingAppService {
         }
 
         try {
-            // Get installation token
-            String token = githubAuthPort.getInstallationAccessToken(installationId);
+            // Get installation token (fallback to repo lookup if installationId is 0)
+            String token = (installationId > 0)
+                    ? githubAuthPort.getInstallationAccessToken(installationId)
+                    : githubAuthPort.getInstallationAccessTokenForRepo(repoName);
+
+            if (token == null || token.isBlank()) {
+                System.err.println("[SelfHealing] Could not acquire Installation Access Token for repo: " + repoName + ". Ensure PikiLand GitHub App is installed on this repository.");
+                return;
+            }
 
             // Ensure the workflow file is installed on the default branch
             System.out.println("Ensuring PikiLand workflow is installed on branch: " + defaultBranch);
