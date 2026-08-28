@@ -1,18 +1,23 @@
-# --- Production Runtime (Pre-built Jar) ---
-FROM eclipse-temurin:21-jre-alpine
+# --- Production Runtime (Bun) ---
+FROM oven/bun:1.2-alpine
 WORKDIR /app
 
-# Install OpenSSH client (ssh, scp), curl, and tzdata
-RUN apk add --no-cache tzdata openssh-client curl && \
+# Set timezone to Asia/Seoul
+RUN apk add --no-cache tzdata curl && \
     cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
     echo "Asia/Seoul" > /etc/timezone
 
 # Create data directory for persistence
 RUN mkdir -p /app/data
 
-# Copy pre-built executable jar from build directory
-COPY build/libs/*.jar app.jar
+# Copy package definition and install dependencies
+COPY package.json bun.lock tsconfig.json bunfig.toml ./
+RUN bun install --production
+
+# Copy source code and static assets
+COPY src/ ./src/
+COPY public/ ./public/
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Duser.timezone=Asia/Seoul", "-jar", "app.jar"]
+ENTRYPOINT ["bun", "src/index.ts"]

@@ -19,16 +19,16 @@
                          │ HTTP:8080
                          ▼
  ┌─────────────────────────────────────────────────────┐
- │  Docker: pikiland-server (Spring Boot 3.3 / JDK 21) │
+ │  Docker: pikiland-server (TypeScript + Bun / Hono)  │
  │  - OAuth2 Login (GitHub)                            │
- │  - Webhook 수신 & 이벤트 큐                          │
- │  - pikiland.yml 자동 삽입                            │
- │  - 대시보드 & 어드민 UI                              │
+ │  - Webhook 수신 & 이벤트 처리                       │
+ │  - pikiland.yml 자동 삽입                           │
+ │  - 대시보드 & 어드민 UI                             │
  └───────────────────────┬─────────────────────────────┘
-                         │ JDBC:5432
+                         │ SQLite (data/pikiland.sqlite)
                          ▼
  ┌─────────────────────────────────────────────────────┐
- │  Docker: pikiland-postgres (PostgreSQL)             │
+ │  Local SQLite DB (Drizzle ORM)                      │
  └─────────────────────────────────────────────────────┘
                          │ GitHub Actions (워크플로 트리거)
                          ▼
@@ -133,7 +133,7 @@ GitHub → Settings → Developer settings → GitHub Apps → New GitHub App으
 | **GitHub App name** | `PikiLand-AutoFix` (유니크한 이름) |
 | **Homepage URL** | `https://pikiland.yourdomain.com` |
 | **Callback URL** | `https://pikiland.yourdomain.com/login/oauth2/code/github` |
-| **Setup URL** | `https://pikiland.yourdomain.com/dashboard` |
+| **Setup URL** | `https://pikiland.yourdomain.com/setup` |
 | **Webhook URL** | `https://pikiland.yourdomain.com/api/webhook` |
 | **Webhook Secret** | 안전한 랜덤 문자열 (예: `openssl rand -hex 32` 결과) |
 | **Where can this GitHub App be installed?** | `Any account` 또는 `Only on this account` |
@@ -184,13 +184,8 @@ PIKILAND_ADMIN_USERS="your_github_username"
 GITHUB_CLIENT_ID="Ov23zXXXXXXXXXXXXXXX"
 GITHUB_CLIENT_SECRET="a1b2c3d4e5f6g7h8i9j0abcdef..."
 
-# PostgreSQL
-DATABASE_URL="jdbc:postgresql://postgres:5432/pikilanddb"
-DATABASE_USER="postgres"
-DATABASE_PASSWORD="pikiland_secure_password_123!"
-
-# Docker 이미지 (GHCR)
-PIKILAND_IMAGE="ghcr.io/your_github_username/pikiland:latest"
+# SQLite Database
+DATABASE_PATH="./data/pikiland.sqlite"
 
 # 디버그 모드 (운영 환경에서 반드시 false)
 DEBUG="false"
@@ -385,7 +380,7 @@ PikiLand는 프로덕션 EC2 서버의 로그를 단방향으로 수집하여 �
 1. `/dashboard` 접속 후 대상 저장소 카드의 **[⚡ Provision Fluent Bit (EC2)]** 버튼을 클릭합니다.
 2. EC2 IP, SSH 유저명(`ec2-user` 또는 `ubuntu`), 로그 파일 경로(`/var/log/production/*.log`), 1회용 SSH Private Key(`.pem`)를 입력합니다.
 3. 백엔드가 원격 SSH 접속을 진행하여 Fluent Bit 설치, `fluent-bit.conf` 설정 주입 및 서비스 재시작을 자동 수행합니다.
-4. 설치 완료 직후 EC2 원격 `~/.ssh/authorized_keys` 및 백엔드의 임시 SSH 키는 **원천 파기(Zero Trust)**됩니다.
+4. 설치 완료 직후 백엔드의 임시 SSH 키 파일 및 메모리는 **원천 파기(Zero Trust)**됩니다.
 
 ### 13-2. 수동 스크립트 실행 배포 (대안 - 방안 B)
 
@@ -409,7 +404,7 @@ PikiLand는 프로덕션 EC2 서버의 로그를 단방향으로 수집하여 �
 [FILTER]
     Name            grep
     Match           myapp.production
-    Regex           log (?i)(error|exception|fatal|critical|panic|unhandled|fail|severe|5\d{2}|traceback)
+    Regex           log (error|ERROR|Error|exception|Exception|EXCEPTION|fatal|FATAL|critical|CRITICAL|panic|PANIC|unhandled|Unhandled|UNHANDLED|fail|FAIL|severe|SEVERE|5[0-9][0-9]|traceback|Traceback|NullPointer)
 
 [OUTPUT]
     Name            http

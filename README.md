@@ -9,10 +9,10 @@ PikiLand는 GitHub CI/CD 워크플로 실패 및 이슈를 수신하고, AI 코�
 ## 🌟 주요 특징
 
 - **오케스트레이터 & 실행 엔진 이원화**:
-  - **Web App (Coordinator)**: Spring Boot 3.3 (Java 21, Virtual Threads) 기반의 오케스트레이터. 웹훅 수신, OAuth 인증, 대시보드, 어드민 및 저장소 워크플로 자동 삽입을 관리합니다.
+  - **Web App (Coordinator)**: TypeScript + Bun (Hono) 기반의 고성능 초경량 오케스트레이터. 웹훅 수신, OAuth 인증, 대시보드, 어드민 및 저장소 워크플로 자동 삽입을 관리합니다.
   - **CLI (Execution Engine)**: GitHub Actions 환경에서 단발성으로 동작하는 실행 엔진 (`yourssu/PikiLand-Engine`). 분석, Ralph Loop, 패치 적용, PR 생성을 담당합니다.
 - **단방향 프로덕션 로그 수집 & 1회성 SSH 프로비저닝 (Zero Trust)**:
-  - 대시보드 UI에서 1회용 SSH Private Key(`.pem`)를 통해 원격 EC2에 Fluent Bit 수집기를 자동 설치하고 `grep` 정규식 필터를 주입하며 접속 후 SSH 키는 원천 파기됩니다.
+  - 대시보드 UI에서 1회용 SSH Private Key(`.pem`)를 통해 원격 EC2에 Fluent Bit 수집기를 자동 설치하고 `grep` 정규식 필터를 주입하며 접속 후 백엔드 SSH 키 메모리 및 임시 파일은 원천 파기됩니다.
 - **LLM 기반 로그 경로 자동 추론**:
   - `application.yml`, `logback.xml`, `docker-compose.yml` 등 프로젝트 설정 파일을 분석하여 프로덕션 로그 경로를 자동 추론합니다.
 - **GitHub App 설치 완료 전용 안내 페이지 (`/setup`) & Direct API 로딩 최적화**:
@@ -58,24 +58,27 @@ PikiLand는 GitHub CI/CD 워크플로 실패 및 이슈를 수신하고, AI 코�
 
 ### 1. Web App 모드 (Coordinator) — 본 저장소 (`yourssu/PikiLand`)
 - **역할**: 사용자 대시보드, GitHub OAuth 로그인, 웹훅 수신, 시스템 설정 및 워크플로 자동 삽입.
-- **실행 환경**: 지속 구동되는 웹 서버 (`Spring Boot 3.3`, 포트 `8080`).
+- **실행 환경**: 지속 구동되는 초경량 웹 서버 (`TypeScript + Bun`, `Hono`, 포트 `8080`).
 
 ### 2. CLI 모드 (Execution Engine) — 전용 저장소 (`yourssu/PikiLand-Engine`)
 - **역할**: 격리된 GitHub Actions Runner 상에서 가동되는 단발성 패치/검증 엔진.
-- **실행 환경**: 대상 저장소의 GitHub Actions Runner (Native Java 21 Batch 실행).
+- **실행 환경**: 대상 저장소의 GitHub Actions Runner (`TypeScript + Bun` CLI 실행).
 
 ---
 
 ## 💻 로컬 개발 환경 실행
 
-Java 21 환경이 필요합니다.
+Bun 1.2+ 환경이 필요합니다.
 
 ```bash
 # 1. 환경 변수 설정 (.env 작성)
 cp .env.example .env
 
-# 2. 로컬 서버 실행
-./gradlew bootRun --args='--spring.profiles.active=local'
+# 2. 의존성 설치
+bun install
+
+# 3. 로컬 개발 서버 실행 (Live Reload)
+bun dev
 ```
 
 서버 실행 후 브라우저에서 `http://localhost:8080`으로 접속할 수 있습니다.
@@ -88,17 +91,18 @@ cp .env.example .env
 | `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH` | GitHub App 인증 정보 |
 | `GITHUB_WEBHOOK_SECRET` | GitHub Webhook HMAC 서명 검증 키 |
 | `PIKILAND_ADMIN_USERS` | 어드민 페이지(`/admin`)에 접근할 수 있는 GitHub 사용자명 (쉼표 구분) |
-| `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | PostgreSQL 접속 정보 |
+| `DATABASE_PATH` | SQLite DB 파일 경로 (기본값: `./data/pikiland.sqlite`) |
+| `LOG_RECEIVER_TOKEN` | EC2 Fluent Bit 원격 로그 수신 인증 Bearer 토큰 |
 | `DEBUG` (또는 `PIKILAND_DEBUG`) | 디버그 모드 여부 (`true` 시 서명 및 어드민 권한 검사 우회, 기본값: `false`) |
 
 ---
 
 ## 🧪 테스트 실행
 
-ArchUnit 계층 구조 검사 및 로그 정제 단위 테스트를 포함한 전체 테스트 스위트를 실행합니다.
+Webhook HMAC 검증, 로그 정제 및 시그니처 해싱, Harness 추론 단위/통합 테스트 스위트를 실행합니다.
 
 ```bash
-./gradlew clean test
+bun test
 ```
 
 ---

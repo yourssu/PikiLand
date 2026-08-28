@@ -1,0 +1,3 @@
+jsxFactory = "hono/jsx"
+jsxFragment = "hono/jsx/fragment"
+jsxImportSource = "hono/jsx"
