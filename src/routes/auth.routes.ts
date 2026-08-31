@@ -36,13 +36,46 @@ export function getSessionUser(c: any): { username: string; accessToken?: string
   }
 }
 
+export function getEffectiveBaseUrl(c?: any): string {
+  // 1. Explicit environment variable override
+  const envUrl = process.env.PIKILAND_SERVER_URL;
+  if (envUrl && envUrl.trim().length > 0) {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
+
+  // 2. Derive from incoming request / reverse proxy headers
+  if (c) {
+    const proto = c.req.header("X-Forwarded-Proto") || (c.req.url.startsWith("https://") ? "https" : "http");
+    const host = c.req.header("X-Forwarded-Host") || c.req.header("Host") || new URL(c.req.url).host;
+    if (c.req.header("X-Forwarded-Proto") || c.req.header("X-Forwarded-Host")) {
+      return `${proto}://${host}`.replace(/\/+$/, "");
+    }
+  }
+
+  // 3. Database global setting
+  const globalSettings = systemSettingsRepository.getGlobalSettings();
+  if (globalSettings?.pikilandServerUrl && globalSettings.pikilandServerUrl.trim().length > 0) {
+    return globalSettings.pikilandServerUrl.trim().replace(/\/+$/, "");
+  }
+
+  // 4. Default to request URL origin
+  if (c) {
+    const proto = c.req.header("X-Forwarded-Proto") || (c.req.url.startsWith("https://") ? "https" : "http");
+    const host = c.req.header("X-Forwarded-Host") || c.req.header("Host") || new URL(c.req.url).host;
+    return `${proto}://${host}`.replace(/\/+$/, "");
+  }
+
+  return "http://localhost:8080";
+}
+
 // Redirect to GitHub OAuth
 function handleLoginRedirect(c: any) {
   const { clientId } = getEffectiveOAuthConfig();
   if (!clientId) {
     return c.redirect("/dashboard");
   }
-  const redirectUri = `${new URL(c.req.url).origin}/login/oauth2/code/github`;
+  const baseUrl = getEffectiveBaseUrl(c);
+  const redirectUri = `${baseUrl}/login/oauth2/code/github`;
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=read:user,repo&redirect_uri=${encodeURIComponent(redirectUri)}`;
   return c.redirect(githubAuthUrl);
 }

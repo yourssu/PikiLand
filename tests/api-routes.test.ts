@@ -189,6 +189,7 @@ describe("View Routes SSR Rendering", () => {
   it("should redirect /login to GitHub OAuth with /login/oauth2/code/github callback", async () => {
     systemSettingsRepository.saveGlobalSettings({
       githubClientId: "Ov23zTestClient123",
+      pikilandServerUrl: "",
     });
 
     const res = await app.request(new Request("http://localhost:8080/login"));
@@ -197,5 +198,42 @@ describe("View Routes SSR Rendering", () => {
     expect(location).toContain("https://github.com/login/oauth/authorize");
     expect(location).toContain("client_id=Ov23zTestClient123");
     expect(location).toContain("redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Foauth2%2Fcode%2Fgithub");
+  });
+
+  it("should generate https redirect_uri when X-Forwarded-Proto and X-Forwarded-Host are provided", async () => {
+    systemSettingsRepository.saveGlobalSettings({
+      githubClientId: "Ov23zTestClient123",
+      pikilandServerUrl: "",
+    });
+
+    const res = await app.request(
+      new Request("http://localhost:8080/login", {
+        headers: {
+          "X-Forwarded-Proto": "https",
+          "X-Forwarded-Host": "pikiland.yourdomain.com",
+        },
+      })
+    );
+    expect(res.status).toBe(302);
+    const location = res.headers.get("Location") || "";
+    expect(location).toContain("https://github.com/login/oauth/authorize");
+    expect(location).toContain("redirect_uri=https%3A%2F%2Fpikiland.yourdomain.com%2Flogin%2Foauth2%2Fcode%2Fgithub");
+  });
+
+  it("should respect PIKILAND_SERVER_URL environment variable for redirect_uri", async () => {
+    const originalEnv = process.env.PIKILAND_SERVER_URL;
+    process.env.PIKILAND_SERVER_URL = "https://server-url.pikiland.com";
+    try {
+      systemSettingsRepository.saveGlobalSettings({
+        githubClientId: "Ov23zTestClient123",
+      });
+
+      const res = await app.request(new Request("http://localhost:8080/login"));
+      expect(res.status).toBe(302);
+      const location = res.headers.get("Location") || "";
+      expect(location).toContain("redirect_uri=https%3A%2F%2Fserver-url.pikiland.com%2Flogin%2Foauth2%2Fcode%2Fgithub");
+    } finally {
+      process.env.PIKILAND_SERVER_URL = originalEnv;
+    }
   });
 });
