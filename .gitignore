@@ -25,6 +25,12 @@ id_rsa
 id_ed25519
 secrets.json
 
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
 # IDEs and Editors
 .idea/
 .vscode/
