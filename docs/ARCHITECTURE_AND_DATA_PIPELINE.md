@@ -6,7 +6,31 @@
 
 ## 0. Overview
 
-PikiLand는 관측 이벤트를 하나의 Incident로 묶고, 코드·로그·행동·릴리스를 Context Bundle로 연결합니다. 선택한 AI Provider가 패치 후보를 만들지만, 완료 여부는 모델의 자신감이 아니라 Harness의 재현·기대 결과·회귀 검증으로 결정합니다.
+PikiLand는 오류를 직접 고치는 새로운 코딩 에이전트나 범용 Harness를 만드는 제품이 아닙니다. **Harness Engineering이 이미 적용된 저장소에서 Claude Code 또는 Codex가 백그라운드로 자율 작업하도록 시작·추적하고, 검증된 결과만 PR로 공개하는 오케스트레이터**입니다.
+
+### 먼저 구분할 세 가지
+
+| 구분 | 이미 저장소에 있는 것 | PikiLand가 만드는 것 |
+| --- | --- | --- |
+| Repository Agent Harness | AI가 저장소를 이해하고 작업할 수 있는 문서, 도구, 실행환경, 테스트, 로그, 상태 관리, Ralph Loop | 새로 만들지 않고 준비 상태와 진입점만 확인 |
+| Coding Agent | 사용자가 선택한 Claude Code 또는 Codex | Provider Adapter를 통해 백그라운드 작업으로 실행 |
+| Verification | 저장소의 기존 테스트·E2E·검증 명령 | 주 에이전트와 독립 검증 에이전트의 결과 및 실제 테스트 증거를 모아 최종 상태 판정 |
+
+`Harness`라는 단어를 테스트 실행기 하나로 사용하지 않습니다. 이 문서에서 **Repository Agent Harness**는 다음 전체 환경을 의미합니다.
+
+```text
+Repository Agent Harness
+├─ AGENTS.md / CLAUDE.md와 프로젝트 문서
+├─ 파일·Git·터미널·브라우저 도구
+├─ 앱과 의존 서비스 실행 방법
+├─ 기존 단위·통합·E2E 테스트
+├─ 로그·메트릭·trace 접근
+├─ worktree 또는 격리 작업환경
+├─ 진행 상태와 실패 기록
+└─ Ralph Loop와 중단 규칙
+```
+
+PikiLand는 이 환경을 대체하지 않습니다. 오류 당시의 Context를 조립해 선택된 코딩 에이전트를 실행하고, 저장소의 기존 Agent Harness가 제공하는 피드백 루프를 이용하도록 연결합니다.
 
 ### 전체 구조
 
@@ -21,18 +45,51 @@ GitHub / PostHog / Sentry / Logs
                  │
                  ▼
               Worker
+                 │
+                 ▼
+          Context Builder
+                 │
+                 ▼
+          Context Bundle
+                 │
+                 ▼
+      ClaudeProvider / CodexProvider
+                 │
+                 ▼
+       Primary Coding Agent
+       코드 수정 + 테스트 + 자체 점검
+                 │
+                 ▼
+     Repository Agent Harness
+       기존 도구 + Ralph Loop
+                 │
+                 ▼
+ Independent Verification Agent
+       diff·테스트·회귀 독립 검토
+                 │
+                 ▼
+       Verification Policy
+       실제 증거 + 두 Agent 결과
+                 │
           ┌──────┴──────┐
           ▼             ▼
-   Context Builder   AI Provider
-                         │
-                         ▼
-              Ralph Loop + Harness
-                         │
-                         ▼
-             Candidate Ranker
-                         │
-                    PR + Slack
+       재작업       성공 후보 비교
+          │             │
+          └─ Ralph ◀────┘
+                        │
+                   PR + Slack
 ```
+
+### 각 단계가 하는 일
+
+1. **Adapters**는 GitHub·PostHog·Sentry·로그의 서로 다른 이벤트를 공통 형식으로 바꿉니다.
+2. **Incident Store**는 같은 오류의 반복 이벤트를 하나의 사건으로 묶고 처리 상태를 저장합니다.
+3. **Context Builder**는 코드·로그·사용자 행동·요청·응답·릴리스를 연결하고 민감정보와 연결 불확실성을 표시한 `Context Bundle`을 만듭니다. 원인을 추론하거나 코드를 수정하지는 않습니다.
+4. **Primary Coding Agent**는 사용자가 선택한 Claude Code 또는 Codex입니다. Context Bundle과 저장소의 Agent Harness를 이용해 원인을 분석하고 코드와 테스트를 수정합니다.
+5. **Repository Agent Harness**는 저장소에 이미 있는 도구와 피드백 환경입니다. 앱 실행, 테스트, E2E, 로그 확인과 Ralph Loop를 제공합니다.
+6. **Independent Verification Agent**는 주 에이전트와 분리된 새 작업에서 전체 diff, 추가 테스트, 회귀 위험과 오류 은폐를 검토합니다. MVP에서는 사용자가 선택한 같은 Provider의 별도 실행을 기본으로 합니다.
+7. **Verification Policy**는 주 에이전트의 주장만 믿지 않고, 보조 에이전트 결과와 실제 테스트·E2E 증거를 함께 확인해 `Verified`, `Retry`, `Unreproducible`, `Unverifiable` 등을 판정합니다.
+8. 검증 실패는 Ralph Loop의 다음 반복으로 돌려보내고, 검증 성공 후보가 여러 개면 최선의 하나만 PR로 공개합니다.
 
 ### 데이터 흐름
 
@@ -50,46 +107,52 @@ GitHub / PostHog / Sentry / Logs
 
 ### MVP 전제
 
-- 저장소에 신뢰할 수 있는 재현·E2E Harness가 있다.
-- Ralph Loop 또는 동등한 반복 실행 계약이 있다.
-- Harness 결과를 기계가 판정할 수 있다.
+- 저장소에 AI가 자율 작업할 수 있는 Repository Agent Harness가 있다.
+- 앱 실행, 테스트·E2E, 로그·artifact 확인 방법이 저장소에서 발견 가능하다.
+- Ralph Loop 또는 동등한 반복 실행 방식이 있다.
+- 기존 검증 명령의 성공·실패와 증거를 PikiLand가 수집할 수 있다.
 - 준비되지 않은 저장소에는 자동 패치 PR을 만들지 않는다.
 
 ## 1. Contracts
 
-### Repository Readiness
+### Repository Readiness Contract
 
 ```text
 저장소 접근
-  → Harness 명령 확인
+  → Agent 지침과 프로젝트 문서 확인
+  → 앱 실행·테스트·E2E 명령 확인
+  → 로그·artifact 위치 확인
   → Ralph Loop 실행 확인
   → Secret·환경 연결 확인
-  → 구조화 결과 확인
+  → 결과 수집 가능 여부 확인
   → Ready 또는 Setup Required
 ```
 
 `Setup Required` 상태에서는 빠진 항목만 안내합니다.
 
-### Harness Contract
+PikiLand는 모든 저장소에 같은 테스트 프레임워크나 범용 시나리오 DSL을 강제하지 않습니다. 저장소가 이미 사용하는 명령을 실행할 최소 진입점만 필요합니다.
 
-Harness는 기술스택과 관계없이 다음을 제공해야 합니다.
+### Repository Automation Entry Points
 
-- Incident Context 입력
-- 패치 전 오류 재현
-- 패치 후 동일 시나리오 실행
-- 관련 정상 흐름의 회귀 검사
-- 화면·응답·DB·외부 시스템의 기대 결과 assertion
-- 로그·스크린샷 등 증거 artifact
-- 성공·실패·검증 불가의 구조화 출력
+저장소는 기술스택과 관계없이 다음 정보를 Agent 지침·프로젝트 설정·Adapter 중 하나로 제공해야 합니다.
 
-정확한 명령과 결과 스키마는 아직 미결정입니다.
+- 작업환경 준비 방법
+- 앱과 필요한 의존 서비스 실행 방법
+- 기본 테스트와 E2E 명령
+- 로그·스크린샷 등 artifact 위치
+- Ralph Loop 시작·상태·중단 방법
+- 성공·실패를 확인할 exit code 또는 결과 파일
 
-### Ralph Loop Contract
+PikiLand는 서로 다른 출력 형식을 Adapter로 읽어 공통 실행 결과로 변환합니다. 정확한 최소 설정 형식은 실제 Java·Node·프론트 저장소로 검증한 뒤 확정합니다.
 
-- Harness 실패 결과를 다음 AI 반복에 전달한다.
-- 후보·진행 상태·남은 작업을 모델 밖에 저장한다.
-- 성공, 재현 불가, 검증 실패, 무진전, 사용량 소진을 구분한다.
-- 외부 Harness 결과가 완료를 판정한다.
+### Agent Review & Ralph Loop
+
+- Primary Coding Agent는 패치, 추가한 테스트, 실행 결과와 남은 위험을 반환합니다.
+- Independent Verification Agent는 별도 작업환경에서 diff와 실제 실행 결과를 독립 검토합니다.
+- 실제 테스트 실패와 검증 에이전트의 blocking finding을 다음 Ralph 반복에 전달합니다.
+- 후보·진행 상태·남은 작업을 모델 밖에 저장합니다.
+- 성공, 재현 불가, 검증 실패, 무진전, 사용량 소진을 구분합니다.
+- 최종 상태는 모델의 자기평가가 아니라 Verification Policy가 판정합니다.
 
 ### PikiLand Engine CLI Error Exit Code & PR Metadata Contract
 
@@ -117,9 +180,12 @@ Harness는 기술스택과 관계없이 다음을 제공해야 합니다.
 | Context Builder | 코드·로그·행동·릴리스를 연결하고 민감정보 제거 |
 | Incident Store | 중복 키와 처리 상태 보관 |
 | Work Queue | 웹훅과 장시간 작업 분리, 재시도·복구 |
-| Worker | Provider와 Ralph Loop 실행 |
+| Worker | Context 생성, Provider, Agent Review와 Ralph Loop 오케스트레이션 |
 | AI Provider | Claude·Codex의 서로 다른 인증과 실행을 Adapter로 격리 |
-| Harness | 재현, 기대 결과, 회귀, 오류 은폐 판정 |
+| Primary Coding Agent | 선택한 Claude Code 또는 Codex로 원인 분석·패치·테스트 수행 |
+| Repository Agent Harness | 저장소의 기존 문서·도구·실행환경·테스트·로그·Ralph Loop |
+| Independent Verification Agent | 패치와 테스트를 새 Context에서 독립 검토 |
+| Verification Policy | 두 Agent 결과와 실제 실행 증거를 조합해 상태 판정 |
 | Candidate Ranker | 성공 후보의 근거·변경 범위·복잡도 비교 |
 | PR Publisher | 최선의 후보 하나와 검증 증거 공개 |
 | Slack Notifier | 쉬운 결과 요약과 링크 전달 |
@@ -127,9 +193,9 @@ Harness는 기술스택과 관계없이 다음을 제공해야 합니다.
 ### GitHub App과 GitHub Actions의 경계
 
 - GitHub App은 외부 이벤트와 전체 상태를 오케스트레이션합니다.
-- GitHub Actions는 저장소 내부의 빌드와 Harness 실행에 사용합니다.
+- GitHub Actions는 저장소 내부의 빌드와 기존 검증 명령 실행에 사용합니다.
 - 웹훅 서버는 서명 검증과 작업 등록 후 빠르게 응답합니다.
-- AI·Harness·Ralph Loop는 복구 가능한 Worker에서 실행합니다.
+- Agent 작업과 Ralph Loop는 복구 가능한 Worker가 오케스트레이션합니다.
 
 GitHub도 웹훅 요청에는 빠르게 응답하고 긴 작업은 Queue로 넘길 것을 권장합니다. [GitHub Webhook Best Practices](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks)
 
@@ -154,7 +220,7 @@ Sentry와 PostHog를 동시에 요구하지 않습니다. 사용 가능한 공�
 3. **Deduplicate:** 같은 오류와 release의 반복 이벤트를 합친다.
 4. **Correlate:** 식별자와 시간 범위로 코드·로그·행동·릴리스를 연결한다.
 5. **Redact:** PII, 토큰, 비밀번호를 제거한다.
-6. **Bundle:** AI와 Harness가 읽을 Context Bundle을 만든다.
+6. **Bundle:** Primary Coding Agent와 Independent Verification Agent가 읽을 Context Bundle을 만든다.
 7. **Verify:** 후보와 검증 결과를 Incident에 연결한다.
 8. **Publish:** 공개 가능한 근거만 PR과 Slack에 보낸다.
 9. **Expire:** 원본 Context와 일회성 권한을 삭제한다.
@@ -172,7 +238,7 @@ Sentry와 PostHog를 동시에 요구하지 않습니다. 사용 가능한 공�
 | Ambiguous | 가능한 세션·로그가 여러 개임 | 후보를 제한해 시도하되 단정하지 않음 |
 | Missing | 연결할 데이터가 부족함 | 필요한 Context를 알리고 재현 가능 여부만 확인 |
 
-PR과 Slack 결과에는 연결 상태, 사용한 근거, 누락된 데이터와 재현 결과를 함께 표시합니다. `Probable`이나 `Ambiguous`에서 시작했더라도 Harness가 원래 오류를 독립적으로 재현하면 검증을 계속할 수 있습니다. 재현하지 못하면 `Unreproducible`로 종료하고 최종 PR을 공개하지 않습니다.
+PR과 Slack 결과에는 연결 상태, 사용한 근거, 누락된 데이터와 재현 결과를 함께 표시합니다. `Probable`이나 `Ambiguous`에서 시작했더라도 저장소의 기존 실행·검증 환경에서 원래 오류를 독립적으로 재현하면 검증을 계속할 수 있습니다. 재현하지 못하면 `Unreproducible`로 종료하고 최종 PR을 공개하지 않습니다.
 
 ## 4. Patch & Verification Loop
 
@@ -187,8 +253,9 @@ PR과 Slack 결과에는 연결 상태, 사용한 근거, 누락된 데이터와
 ```text
 Baseline 재현
   → 원인·패치 후보 N개
-  → 후보별 격리 실행
-  → Harness 실패를 Ralph 반복에 전달
+  → Primary Coding Agent가 후보별 패치·테스트
+  → Independent Verification Agent가 독립 검토
+  → 실제 테스트와 blocking finding을 Ralph 반복에 전달
   → 실패·재현 불가 후보 폐기
   → 성공 후보 비교
   → 최선의 하나만 공개
@@ -202,7 +269,7 @@ Baseline 재현
 | Unreproducible | X | 부족한 재현 정보 |
 | Verification failed | X | 후보별 실패 이유 |
 | Usage exhausted | X | 재개 조건 |
-| Harness unavailable | X | 저장소 준비 항목 |
+| Repository not ready | X | Agent Harness 준비에 필요한 항목 |
 
 ## 5. Recommended New Structure
 
@@ -215,7 +282,7 @@ Baseline 재현
 | 상태 저장 | PostgreSQL | Incident와 검증 상태를 일관되게 저장 |
 | 작업 큐 | pg-boss | PostgreSQL 하나로 재시도·동시성·실패 작업을 관리해 초기 인프라 축소 |
 | 실행 | 격리된 Worker·ephemeral container | 사용자 코드를 Control Plane에서 직접 실행하지 않음 |
-| 검증 | 저장소 Harness + Ralph Loop | 프로젝트의 기대 결과는 저장소가 정의하고 PikiLand는 반복을 관리 |
+| 검증 | Repository Agent Harness + Agent Review + Verification Policy | 저장소의 기존 도구를 사용하고 PikiLand는 독립 검토와 최종 상태를 관리 |
 
 ### Probot이 하는 일
 
@@ -250,7 +317,7 @@ Probot은 Node.js용 GitHub App 프레임워크입니다. 웹훅 이벤트를 `a
 
 ### 구현 전에 확정할 계약
 
-- 여러 언어의 실제 저장소로 검증한 Harness 명령과 결과 스키마
+- 여러 언어의 실제 저장소로 검증한 Repository Automation Entry Points와 결과 Adapter
 - 후보당 반복 수, 연속 무진전 횟수, 시간·사용량 예산
 - 오류 당시 프론트 artifact를 찾고 실행하는 배포 시스템 Adapter
 - 후보 격리 방식과 실제 호스팅 환경
