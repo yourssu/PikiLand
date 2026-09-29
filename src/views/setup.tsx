@@ -31,7 +31,7 @@ export const SetupPage: FC<SetupPageProps> = ({ repos }) => {
           style="background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 28px; text-align: left;"
         >
           <h3
-            style="margin-top: 0; margin-bottom: 12px; font-size: 1rem; color: var(--primary-solid); display: flex; align-items: center; gap: 8px;"
+            style="margin-top: 0; margin-bottom: 12px; font-size: 1rem; color: var(--text-light); font-weight: 700;"
           >
             연동된 저장소 (<span>{repos.length}</span>개)
           </h3>

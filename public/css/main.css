@@ -59,7 +59,7 @@
 body {
     background-color: var(--bg-dark);
     color: var(--text-light);
-    font-family: -apple-system, BlinkMacSystemFont, "Pretendard Variable", Pretendard,
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
         "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
@@ -553,7 +553,6 @@ input:checked + .slider:before {
 
 /* Guide Card & Theming */
 .guide-card {
-    border-left: 4px solid var(--primary-solid);
     background: var(--card-bg);
     padding: 20px;
     border-radius: 12px;

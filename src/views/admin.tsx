@@ -35,22 +35,19 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
 
         <main class="dashboard-main">
           <div class="main-header" style="margin-bottom: 24px;">
-            <h1 style="color: var(--warning);">
+            <h1 style="color: var(--text-light);">
               중앙 시스템 설정
             </h1>
             <p>PikiLand App 인증 정보, OAuth 자격 증명 및 서버 전용 개인키를 관리합니다.</p>
           </div>
 
           {/* Global System Settings Panel (Admin Only Page) */}
-          <div
-            class="glass-card admin-card"
-            style="border-left: 4px solid var(--warning); background: var(--card-bg); padding: 24px; border-radius: 12px;"
-          >
+          <div class="glass-card admin-card">
             <div
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;"
             >
               <div>
-                <h2 style="margin: 0; color: var(--warning); font-size: 1.25rem;">
+                <h2 style="margin: 0; color: var(--text-light); font-size: 1.25rem; font-weight: 700;">
                   GitHub App 및 OAuth 인증 정보
                 </h2>
                 <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: var(--text-dim);">
@@ -139,19 +136,14 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
           </div>
 
           {/* Server-Side AI Provider Settings Panel (Admin Only) */}
-          <div
-            class="glass-card admin-card"
-            style="border-left: 4px solid var(--primary-solid); background: var(--card-bg); padding: 24px; border-radius: 12px; margin-top: 24px;"
-          >
+          <div class="glass-card admin-card" style="margin-top: 24px;">
             <div style="margin-bottom: 20px;">
-              <h2 style="margin: 0; color: var(--primary-solid); font-size: 1.25rem;">
+              <h2 style="margin: 0; color: var(--text-light); font-size: 1.25rem; font-weight: 700;">
                 중앙 AI Provider 설정 (서버 전용)
               </h2>
               <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: var(--text-dim);">
                 Coordinator 서버 측의 로그 및 하네스 분석에 사용됩니다.<br />
-                <span style="color: var(--primary-solid);">
-                  참고: 실제 실행 엔진(CLI) 패치 생성용 AI 모델과 시크릿은 저장소별 Secrets로 격리됩니다.
-                </span>
+                참고: 실제 실행 엔진(CLI) 패치 생성용 AI 모델과 시크릿은 저장소별 Secrets로 격리됩니다.
               </p>
             </div>
 
