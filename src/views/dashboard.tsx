@@ -118,35 +118,37 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                 return (
                   <div key={repo.fullName} class="glass-card repo-card" data-owner={owner}>
                     <div class="repo-row" onclick="toggleRepoCard(this)">
-                      <div class="repo-row-main">
-                        <span class="repo-expand-icon">▸</span>
-                        <h3 class="repo-title" title={repo.fullName}>{repo.fullName}</h3>
-                        <span
-                          class={`status-badge-harness ${
-                            !repo.hasAppInstalled
-                              ? "badge-none"
-                              : repo.harnessStatus === "ACTIVE"
-                              ? "badge-active"
-                              : repo.harnessStatus === "PENDING_CONFIRMATION"
-                              ? "badge-pending"
-                              : "badge-none"
-                          }`}
-                          data-repo={repo.fullName}
-                        >
-                          {repo.hasAppInstalled ? `하네스: ${repo.harnessStatus}` : "앱 미설치"}
-                        </span>
+                      <div class="repo-row-top">
+                        <div class="repo-row-title">
+                          <span class="repo-expand-icon">▸</span>
+                          <h3 class="repo-title">{repo.fullName}</h3>
+                        </div>
+                        <label class="switch" onclick="event.stopPropagation()">
+                          <input
+                            type="checkbox"
+                            id={`toggle-${repo.fullName}`}
+                            checked={repo.active}
+                            data-installed={String(Boolean(repo.hasAppInstalled))}
+                            data-repo={repo.fullName}
+                            onchange="handleToggleChange(this)"
+                          />
+                          <span class="slider"></span>
+                        </label>
                       </div>
-                      <label class="switch" onclick="event.stopPropagation()">
-                        <input
-                          type="checkbox"
-                          id={`toggle-${repo.fullName}`}
-                          checked={repo.active}
-                          data-installed={String(Boolean(repo.hasAppInstalled))}
-                          data-repo={repo.fullName}
-                          onchange="handleToggleChange(this)"
-                        />
-                        <span class="slider"></span>
-                      </label>
+                      <span
+                        class={`status-badge-harness ${
+                          !repo.hasAppInstalled
+                            ? "badge-none"
+                            : repo.harnessStatus === "ACTIVE"
+                            ? "badge-active"
+                            : repo.harnessStatus === "PENDING_CONFIRMATION"
+                            ? "badge-pending"
+                            : "badge-none"
+                        }`}
+                        data-repo={repo.fullName}
+                      >
+                        {repo.hasAppInstalled ? `하네스: ${repo.harnessStatus}` : "앱 미설치"}
+                      </span>
                     </div>
 
                     <div class="repo-details">
@@ -281,11 +283,10 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         />
                       </div>
 
-                      <div class="button-group" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                      <div class="button-group">
                         <button
                           type="button"
                           class="btn btn-primary btn-save"
-                          style="flex: 1;"
                           data-repo={repo.fullName}
                           onclick="saveSettings(this.getAttribute('data-repo'))"
                         >
@@ -294,7 +295,6 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         <button
                           type="button"
                           class="btn btn-secondary btn-infer-harness"
-                          style="font-size: 0.85rem;"
                           data-repo={repo.fullName}
                           onclick="inferHarness(this.getAttribute('data-repo'))"
                         >
@@ -303,7 +303,6 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         <button
                           type="button"
                           class="btn btn-secondary"
-                          style="font-size: 0.85rem; border-color: var(--primary-solid); color: var(--primary-solid);"
                           data-repo={repo.fullName}
                           data-ec2-ip={repo.ec2Ip || ""}
                           data-log-path={repo.logPath || ""}
@@ -314,7 +313,6 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         <button
                           type="button"
                           class="btn btn-secondary"
-                          style="font-size: 0.85rem; border-color: var(--success); color: var(--success);"
                           data-repo={repo.fullName}
                           onclick="openIncidentModal(this.getAttribute('data-repo'))"
                         >

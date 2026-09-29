@@ -262,16 +262,22 @@ body {
 
 .repo-row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 6px;
     cursor: pointer;
 }
 
-.repo-row-main {
+.repo-row-top {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.repo-row-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
     min-width: 0;
 }
 
@@ -280,6 +286,7 @@ body {
     flex-shrink: 0;
     color: var(--text-dim);
     font-size: 12px;
+    margin-top: 4px;
     transition: transform 0.15s ease;
 }
 
@@ -290,9 +297,11 @@ body {
 .repo-title {
     font-size: 15px;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-break: break-word;
+}
+
+.repo-row .status-badge-harness {
+    margin-left: 20px;
 }
 
 .repo-details {
@@ -387,6 +396,16 @@ body {
 .btn-save {
     width: 100%;
     margin-top: 8px;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.button-group .btn {
+    width: 100%;
 }
 
 .btn-logout {
