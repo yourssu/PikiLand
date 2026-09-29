@@ -101,6 +101,16 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
           </div>
 
           {/* Repository Owner Tabs Navigation Bar */}
+          <div class="repo-search-bar">
+            <input
+              type="text"
+              id="repo-search-input"
+              class="repo-search-input"
+              placeholder="저장소 검색 (예: PikiLand)"
+              oninput="filterRepoCards()"
+            />
+          </div>
+
           <div id="repo-tabs-bar" class="repo-tabs-container"></div>
 
           <div class="repo-grid">
@@ -123,17 +133,6 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                           <span class="repo-expand-icon">▸</span>
                           <h3 class="repo-title">{repo.fullName}</h3>
                         </div>
-                        <label class="switch" onclick="event.stopPropagation()">
-                          <input
-                            type="checkbox"
-                            id={`toggle-${repo.fullName}`}
-                            checked={repo.active}
-                            data-installed={String(Boolean(repo.hasAppInstalled))}
-                            data-repo={repo.fullName}
-                            onchange="handleToggleChange(this)"
-                          />
-                          <span class="slider"></span>
-                        </label>
                       </div>
                       <span
                         class={`status-badge-harness ${
@@ -152,6 +151,26 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                     </div>
 
                     <div class="repo-details">
+                      <div class="repo-active-row">
+                        <div>
+                          <div class="repo-active-label">저장소 자동화 활성화</div>
+                          <div class="repo-active-hint">
+                            켜두면 워크플로 실패나 이슈 발생 시 PikiLand가 자동으로 분석·패치를 시도합니다.
+                          </div>
+                        </div>
+                        <label class="switch">
+                          <input
+                            type="checkbox"
+                            id={`toggle-${repo.fullName}`}
+                            checked={repo.active}
+                            data-installed={String(Boolean(repo.hasAppInstalled))}
+                            data-repo={repo.fullName}
+                            onchange="handleToggleChange(this)"
+                          />
+                          <span class="slider"></span>
+                        </label>
+                      </div>
+
                       <div
                         class="status-badges"
                         style="margin-bottom: 16px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;"

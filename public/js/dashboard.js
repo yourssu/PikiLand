@@ -303,24 +303,33 @@ function toggleRepoCard(rowEl) {
     if (card) card.classList.toggle('expanded');
 }
 
+let currentOwnerFilter = 'all';
+
 function switchOwnerTab(selectedOwner) {
+    currentOwnerFilter = selectedOwner;
     const tabBtns = document.querySelectorAll('.owner-tab-btn');
     tabBtns.forEach(btn => {
-        if (btn.getAttribute('data-target-owner') === selectedOwner) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+        btn.classList.toggle('active', btn.getAttribute('data-target-owner') === selectedOwner);
     });
+    applyRepoFilters();
+}
+
+function filterRepoCards() {
+    applyRepoFilters();
+}
+
+function applyRepoFilters() {
+    const searchInput = document.getElementById('repo-search-input');
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
     const cards = document.querySelectorAll('.repo-card[data-owner]');
     cards.forEach(card => {
         const cardOwner = card.getAttribute('data-owner');
-        if (selectedOwner === 'all' || cardOwner === selectedOwner) {
-            card.style.display = 'flex';
-        } else {
-            card.style.display = 'none';
-        }
+        const matchesOwner = currentOwnerFilter === 'all' || cardOwner === currentOwnerFilter;
+        const titleEl = card.querySelector('.repo-title');
+        const repoName = titleEl ? titleEl.textContent.toLowerCase() : '';
+        const matchesSearch = !query || repoName.includes(query);
+        card.style.display = (matchesOwner && matchesSearch) ? 'flex' : 'none';
     });
 }
 
