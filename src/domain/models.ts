@@ -31,6 +31,7 @@ export interface RepoSettingsDto {
   harnessSource: HarnessSource;
   ralphMaxRetries: number;
   hasAppInstalled?: boolean;
+  unresolvedIncidentCount?: number;
   inferenceMessage?: string | null;
   logIngestActive?: boolean;
   ec2Ip?: string | null;

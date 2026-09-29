@@ -173,6 +173,10 @@ describe("View Routes SSR Rendering", () => {
     expect(html).toContain('aria-label="하네스 상태:');
     expect(html).toContain('title="활성"');
     expect(html).toContain("✓");
+    expect(html).toContain("repo-incident-btn");
+    expect(html).toContain('aria-label="미해결 인시던트');
+    expect(html).toContain('class="repo-integration-row"');
+    expect(html).toContain("EC2 로그 수집");
   });
 
   it("should render Admin page HTML for admin users in debug mode", async () => {

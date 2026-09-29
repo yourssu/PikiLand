@@ -118,6 +118,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
               <div class="repo-list-header">
                 <span aria-hidden="true"></span>
                 <span>하네스 상태</span>
+                <span>인시던트</span>
               </div>
             )}
             {repos.length === 0 ? (
@@ -127,6 +128,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
             ) : (
               repos.map((repo) => {
                 const owner = repo.fullName.includes("/") ? repo.fullName.split("/")[0] : "other";
+                const unresolvedIncidentCount = repo.unresolvedIncidentCount || 0;
                 const isPendingInference =
                   repo.harnessStatus === "PENDING_CONFIRMATION" &&
                   Boolean(repo.inferredHarnessCmd && repo.inferredHarnessCmd.trim().length > 0);
@@ -178,6 +180,16 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                       >
                         {primaryStatusIcon}
                       </span>
+                      <button
+                        type="button"
+                        class={`btn btn-secondary repo-incident-btn ${unresolvedIncidentCount > 0 ? "has-incidents" : ""}`}
+                        data-repo={repo.fullName}
+                        data-incident-count={String(unresolvedIncidentCount)}
+                        aria-label={`미해결 인시던트 ${unresolvedIncidentCount}건 열기`}
+                        onclick="event.stopPropagation(); openIncidentModal(this.getAttribute('data-repo'))"
+                      >
+                        {unresolvedIncidentCount}건
+                      </button>
                     </div>
 
                     <div class="repo-details-collapse"><div class="repo-details">
@@ -216,13 +228,6 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                             출처: {repo.harnessSource}
                           </span>
                         )}
-                        <span
-                          class={`badge badge-ec2 status-badge-ec2`}
-                          data-repo={repo.fullName}
-                          style={repo.logIngestActive ? "display: inline-flex;" : "display: none;"}
-                        >
-                          EC2 수집 활성
-                        </span>
                         {!repo.hasAppInstalled && (
                           <a
                             href="https://github.com/apps/pikiland/installations/new"
@@ -353,26 +358,31 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         </button>
                       </div>
 
-                      <div class="repo-links-row">
-                        <button
-                          type="button"
-                          class="text-link-btn"
-                          data-repo={repo.fullName}
-                          data-ec2-ip={repo.ec2Ip || ""}
-                          data-log-path={repo.logPath || ""}
-                          onclick="openProvisionModal(this.getAttribute('data-repo'), this)"
-                        >
-                          EC2 연동
-                        </button>
-                        <span class="repo-links-divider">·</span>
-                        <button
-                          type="button"
-                          class="text-link-btn"
-                          data-repo={repo.fullName}
-                          onclick="openIncidentModal(this.getAttribute('data-repo'))"
-                        >
-                          인시던트 내역
-                        </button>
+                      <div class="repo-integration-row">
+                        <div>
+                          <div class="repo-integration-label">EC2 로그 수집</div>
+                          <div class="repo-integration-hint">
+                            프로덕션 서버의 오류 로그를 PikiLand로 전송합니다.
+                          </div>
+                        </div>
+                        <div class="repo-integration-actions">
+                          <span
+                            class={`badge status-badge-ec2 ${repo.logIngestActive ? "badge-active" : "badge-muted"}`}
+                            data-repo={repo.fullName}
+                          >
+                            {repo.logIngestActive ? "연동됨" : "미연동"}
+                          </span>
+                          <button
+                            type="button"
+                            class="btn btn-secondary"
+                            data-repo={repo.fullName}
+                            data-ec2-ip={repo.ec2Ip || ""}
+                            data-log-path={repo.logPath || ""}
+                            onclick="openProvisionModal(this.getAttribute('data-repo'), this)"
+                          >
+                            연동 설정
+                          </button>
+                        </div>
                       </div>
                     </div></div>
                   </div>
