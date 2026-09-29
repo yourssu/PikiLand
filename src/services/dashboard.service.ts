@@ -48,8 +48,40 @@ export class DashboardService {
     systemSettingsRepository.saveGlobalSettings(s);
   }
 
+  private toRepoDto(settings: RepoSettings): RepoSettingsDto {
+    return {
+      fullName: settings.repositoryFullName,
+      active: settings.active,
+      slackWebhookUrl: settings.slackWebhookUrl || "",
+      customModel: settings.customModel || "",
+      customBaseUrl: settings.customBaseUrl || "",
+      harnessCmd: settings.harnessCmd || "",
+      inferredHarnessCmd: settings.inferredHarnessCmd || "",
+      harnessStatus: settings.harnessStatus,
+      harnessSource: settings.harnessSource,
+      ralphMaxRetries: settings.ralphMaxRetries,
+      hasAppInstalled: true,
+      logIngestActive: Boolean(settings.logIngestActive),
+      ec2Ip: settings.ec2Ip || null,
+      logPath: settings.logPath || null,
+    };
+  }
+
   public async getUserRepositories(userAccessToken?: string | null): Promise<RepoSettingsDto[]> {
     const repos: RepoSettingsDto[] = [];
+
+    // No real GitHub session — in debug/preview mode, show every locally
+    // configured repo so the dashboard can be exercised without a real
+    // GitHub App installation. Never runs when NODE_ENV=production.
+    if (!userAccessToken) {
+      const isPreview =
+        process.env.NODE_ENV !== "production" &&
+        (process.env.DEBUG === "true" || process.env.PIKILAND_DEBUG === "true");
+      if (isPreview) {
+        return repoSettingsRepository.findAll().map((settings) => this.toRepoDto(settings));
+      }
+    }
+
     try {
       const installedRepos = userAccessToken
         ? await githubAuthService.getUserInstalledRepositories(userAccessToken)
@@ -58,22 +90,7 @@ export class DashboardService {
       for (const fullName of installedRepos) {
         const settings = repoSettingsRepository.findById(fullName);
         if (settings) {
-          repos.push({
-            fullName: settings.repositoryFullName,
-            active: settings.active,
-            slackWebhookUrl: settings.slackWebhookUrl || "",
-            customModel: settings.customModel || "",
-            customBaseUrl: settings.customBaseUrl || "",
-            harnessCmd: settings.harnessCmd || "",
-            inferredHarnessCmd: settings.inferredHarnessCmd || "",
-            harnessStatus: settings.harnessStatus,
-            harnessSource: settings.harnessSource,
-            ralphMaxRetries: settings.ralphMaxRetries,
-            hasAppInstalled: true,
-            logIngestActive: Boolean(settings.logIngestActive),
-            ec2Ip: settings.ec2Ip || null,
-            logPath: settings.logPath || null,
-          });
+          repos.push(this.toRepoDto(settings));
         } else {
           repos.push({
             fullName,

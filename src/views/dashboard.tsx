@@ -117,57 +117,26 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
 
                 return (
                   <div key={repo.fullName} class="glass-card repo-card" data-owner={owner}>
-                    <div class="repo-meta">
-                      <div>
-                        <h3 class="repo-title">{repo.fullName}</h3>
-                        <div
-                          class="status-badges"
-                          style="margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;"
+                    <div class="repo-row" onclick="toggleRepoCard(this)">
+                      <div class="repo-row-main">
+                        <span class="repo-expand-icon">▸</span>
+                        <h3 class="repo-title" title={repo.fullName}>{repo.fullName}</h3>
+                        <span
+                          class={`status-badge-harness ${
+                            !repo.hasAppInstalled
+                              ? "badge-none"
+                              : repo.harnessStatus === "ACTIVE"
+                              ? "badge-active"
+                              : repo.harnessStatus === "PENDING_CONFIRMATION"
+                              ? "badge-pending"
+                              : "badge-none"
+                          }`}
+                          data-repo={repo.fullName}
                         >
-                          <span class={`badge ${repo.hasAppInstalled ? "badge-active" : "badge-none"}`}>
-                            {repo.hasAppInstalled ? "앱 설치됨" : "앱 미설치"}
-                          </span>
-                          <span
-                            class={`badge status-badge-harness ${
-                              repo.harnessStatus === "ACTIVE"
-                                ? "badge-active"
-                                : repo.harnessStatus === "PENDING_CONFIRMATION"
-                                ? "badge-pending"
-                                : "badge-none"
-                            }`}
-                            data-repo={repo.fullName}
-                          >
-                            하네스: {repo.harnessStatus}
-                          </span>
-                          {repo.harnessSource && repo.harnessSource !== "NONE" && (
-                            <span
-                              class="badge badge-info status-badge-source"
-                              data-repo={repo.fullName}
-                            >
-                              출처: {repo.harnessSource}
-                            </span>
-                          )}
-                          <span
-                            class={`badge badge-ec2 status-badge-ec2`}
-                            data-repo={repo.fullName}
-                            style={repo.logIngestActive ? "display: inline-flex;" : "display: none;"}
-                          >
-                            EC2 수집 활성
-                          </span>
-                          {!repo.hasAppInstalled && (
-                            <a
-                              href="https://github.com/apps/pikiland/installations/new"
-                              target="_blank"
-                              rel="noreferrer"
-                              class="btn btn-secondary"
-                              style="font-size: 0.75rem; padding: 2px 8px; color: var(--warning); border-color: var(--warning); text-decoration: none;"
-                            >
-                              앱 설치하기
-                            </a>
-                          )}
-                        </div>
+                          {repo.hasAppInstalled ? `하네스: ${repo.harnessStatus}` : "앱 미설치"}
+                        </span>
                       </div>
-                      <label class="switch">
+                      <label class="switch" onclick="event.stopPropagation()">
                         <input
                           type="checkbox"
                           id={`toggle-${repo.fullName}`}
@@ -181,6 +150,42 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                     </div>
 
                     <div class="repo-details">
+                      <div
+                        class="status-badges"
+                        style="margin-bottom: 16px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;"
+                      >
+                        <span class={`badge ${repo.hasAppInstalled ? "badge-active" : "badge-none"}`}>
+                          {repo.hasAppInstalled ? "앱 설치됨" : "앱 미설치"}
+                        </span>
+                        {repo.harnessSource && repo.harnessSource !== "NONE" && (
+                          <span
+                            class="badge badge-info status-badge-source"
+                            data-repo={repo.fullName}
+                          >
+                            출처: {repo.harnessSource}
+                          </span>
+                        )}
+                        <span
+                          class={`badge badge-ec2 status-badge-ec2`}
+                          data-repo={repo.fullName}
+                          style={repo.logIngestActive ? "display: inline-flex;" : "display: none;"}
+                        >
+                          EC2 수집 활성
+                        </span>
+                        {!repo.hasAppInstalled && (
+                          <a
+                            href="https://github.com/apps/pikiland/installations/new"
+                            target="_blank"
+                            rel="noreferrer"
+                            class="btn btn-secondary"
+                            style="font-size: 0.75rem; padding: 2px 8px; color: var(--warning); border-color: var(--warning); text-decoration: none;"
+                            onclick="event.stopPropagation()"
+                          >
+                            앱 설치하기
+                          </a>
+                        )}
+                      </div>
+
                       <div class="form-group">
                         <label for={`slack-${repo.fullName}`}>Slack 웹훅 URL</label>
                         <input
