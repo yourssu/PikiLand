@@ -2,6 +2,28 @@
 
 관련 이슈: #2
 
+## 요약
+
+1. 한줄 요약: AI가 만든 패치를 "코드만 고칠지, 인프라까지 고치게 할지" 정하기 위해 업계 사례와 위험 요소를 리서치했고, 결론은 "일단 코드만, 인프라는 나중에(v2)"입니다.
+
+2. 왜 조사했나: PikiLand가 자동으로 PR을 만들 때, AI한테 인프라(배포 설정 등)까지 고칠 권한을 줄지 결정이 안 되어 있었습니다.
+
+3. 뭘 찾아봤나: Devin, Copilot, Cursor 같은 다른 자율 코딩 AI 제품들이 실제로 어디까지 쓰기 권한을 주는지, 그리고 인프라를 잘못 고쳤을 때 실제로 어떤 사고가 나는지 찾아봤습니다.
+
+4. 결론 1: 업계 대부분이 "코드는 넓게 허용, 인프라·설정·시크릿은 승인 게이트 뒤에 둔다"는 패턴이라, 우리도 같은 방향으로 가는 게 맞습니다.
+
+5. 결론 2: 인프라는 되돌리기 어렵고, 안전장치(자동 검사, 배포 후 자동 롤백 같은 것)가 갖춰지기 전에는 AI한테 쓰기 권한을 주면 위험합니다.
+
+6. 그래서 v1은: AI는 코드와 테스트만 고치고, 인프라는 "참고 자료"로만 보여줍니다(읽기만, 수정은 안 함).
+
+7. v2(나중)로 넘어가려면: 인프라 변경도 적용 전에 미리보기가 되고, 문제 생기면 자동으로 되돌릴 수 있고, 규칙 위반을 자동으로 걸러주는 장치 세 가지가 먼저 갖춰져야 합니다.
+
+8. 추가로 개선할 것 1: 예전에 고친 에러들을 "해뒀다가, 비슷한 에러 생기면 AI한테 참고자료로 먼저 보여줍니다.
+
+9. 추가로 개선할 것 2: AI가 아무리 코드를 고쳐도 안 고쳐지는데 알고 보니 인프라 문제인 경우, "이건 코드 문제 아님"이라고 솔직히 보고하고 끝낼 수 있는 상태를 새로 추가합니다.
+
+10. 문서 위치: 자세한 내용은 docs/FIX\_SCOPE\_Rcs/study/(개념 3개 학습 자료)에 정리해뒀고, 이슈 #2에 연결되어 있습니다.
+
 ## 배경
 
 Primary Coding Agent가 패치를 만들 때, 수정 권한을 어디까지 줄지 아직 결정하지 않았다. 관측 범위(Context Bundle이 읽는 대상)와 픽스 범위(Agent가 실제로 수정하는 대상)를 같게 둘 필요는 없다.
@@ -59,6 +81,7 @@ PikiLand에 적용하면 세 가지가 필요하다. 첫째, Context Bundle에 �
 **v1 범위**: 픽스 범위 = 애플리케이션 코드·테스트. 관측 범위 = 코드·로그·행동·릴리스·인프라 설정(읽기 전용)·과거 Incident. Verification Policy에 `Out-of-code-scope`(가칭) 상태를 추가해서, 이 경우 PR 대신 이슈 제안이나 Slack 보고로 종료한다.
 
 **v2로 넘어갈 조건**: 아래 세 가지가 갖춰지기 전까지 인프라 쓰기 권한은 열지 않는다.
+
 - 인프라 변경도 Terraform plan처럼 "적용 전에 리뷰 가능한 미리보기"가 나온다.
 - canary나 staged rollout, 혹은 즉시 롤백 경로가 인프라 변경에도 적용된다.
 - Independent Verification Agent가 인프라 diff에 대해 policy-as-code 수준의 자동 검사(OPA/Conftest 등)를 돌릴 수 있다.
@@ -81,9 +104,11 @@ PikiLand에 적용하면 세 가지가 필요하다. 첫째, Context Bundle에 �
 
 지금 종료 상태는 `Verified`, `Unreproducible`, `Verification failed`, `Usage exhausted`, `Repository not ready` 다섯 가지다(4장). 여기에 `Out-of-code-scope`를 추가한다.
 
-| 종료 상태 | PR | 결과 |
-| --- | :---: | --- |
-| Out-of-code-scope | X | 코드 수정으로 해결되지 않는다는 진단과 근거 |
+
+| 종료 상태             | PR  | 결과                       |
+| ----------------- | :---: | ------------------------ |
+| Out-of-code-scope | X   | 코드 수정으로 해결되지 않는다는 진단과 근거 |
+
 
 판정 조건은 두 가지를 모두 만족할 때다. 첫째, Primary Coding Agent가 Ralph 반복을 여러 번 거쳐도 코드 변경으로 원래 문제를 재현하거나 해결하지 못한다. 둘째, Independent Verification Agent가 Context Bundle의 인프라 설정(읽기 전용)이나 배포 이력에서 명확한 원인 후보를 별도로 확인한다. 두 조건을 나눠 둔 이유는, Primary Agent 혼자의 판단만으로 이 상태를 확정하면 "코드에서 답을 못 찾았다"와 "진짜 코드 밖 문제다"를 구분할 수 없어서 오탐이 늘어나기 때문이다.
 
@@ -99,7 +124,7 @@ PikiLand에 적용하면 세 가지가 필요하다. 첫째, Context Bundle에 �
 - [Enterprise managed permissions for GitHub Copilot agent operations](https://github.blog/changelog/2026-09-09-enterprise-managed-permissions-for-github-copilot-agent-operations/)
 - [Why is Copilot now prohibited from modifying files under .github/agents?](https://github.com/orgs/community/discussions/187679)
 - [Devin Docs: Sandbox](https://docs.devin.ai/cli/sandbox)
-- [OpenAI: Agent approvals & security](https://developers.openai.com/codex/agent-approvals-security)
+- [OpenAI: Agent approvals &amp; security](https://developers.openai.com/codex/agent-approvals-security)
 - [OpenAI: Permissions](https://developers.openai.com/codex/permissions)
 - [Cursor: Implementing a secure sandbox for local agents](https://cursor.com/blog/agent-sandboxing)
 - [Cursor: sandbox.json Reference](https://cursor.com/docs/reference/sandbox)
@@ -117,3 +142,4 @@ PikiLand에 적용하면 세 가지가 필요하다. 첫째, Context Bundle에 �
 - [Least privilege for AI agents: Identity, access, and tool binding (Microsoft Security Blog)](https://www.microsoft.com/en-us/security/blog/2026/07/16/least-privilege-for-ai-agents-identity-access-and-tool-binding/)
 - [What Is Read-only remediation workflow?](https://nhimg.org/glossary/read-only-remediation-workflow/)
 - [Should organisations keep humans in the loop for AI-driven remediation?](https://nhimg.org/faq/should-organisations-keep-humans-in-the-loop-for-ai-driven-remediation/)
+
