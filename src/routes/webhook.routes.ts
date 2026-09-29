@@ -4,12 +4,9 @@ import { systemSettingsRepository } from "../db/repositories/system-settings.rep
 import { repoSettingsRepository } from "../db/repositories/repo-settings.repository";
 import { logFingerprintRepository } from "../db/repositories/log-fingerprint.repository";
 import { selfHealingService } from "../services/self-healing.service";
+import { isDebugMode } from "../config/debug";
 
 export const webhookRoutes = new Hono();
-
-function isDebugMode(): boolean {
-  return process.env.DEBUG === "true" || process.env.PIKILAND_DEBUG === "true";
-}
 
 function getEffectiveWebhookSecret(): string {
   const globalSettings = systemSettingsRepository.getGlobalSettings();
