@@ -17,7 +17,7 @@ export const SetupPage: FC<SetupPageProps> = ({ repos }) => {
           🏰
         </div>
         <h1 class="main-title" style="font-size: 2rem; margin-bottom: 8px;">
-          PikiLand GitHub App 설치 완료
+          PikiLand GitHub App 설치 완료!
         </h1>
         <p
           class="tagline"
