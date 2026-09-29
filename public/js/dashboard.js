@@ -77,8 +77,12 @@ function updateRepoUiFromDto(dto) {
     if (harnessBadge && dto.harnessStatus) {
         const isInstalled = dto.hasAppInstalled !== false;
         const statusLabels = { ACTIVE: '활성', PENDING_CONFIRMATION: '확인 대기', FAILED: '감지 실패', NONE: '미설정' };
+        const statusIcons = { ACTIVE: '✓', PENDING_CONFIRMATION: '◷', FAILED: '!', NONE: '–' };
         const statusClasses = { ACTIVE: 'badge-active', PENDING_CONFIRMATION: 'badge-pending', FAILED: 'badge-none', NONE: 'badge-muted' };
-        harnessBadge.textContent = isInstalled ? (statusLabels[dto.harnessStatus] || dto.harnessStatus) : '앱 미설치';
+        const statusLabel = isInstalled ? (statusLabels[dto.harnessStatus] || dto.harnessStatus) : '앱 미설치';
+        harnessBadge.textContent = isInstalled ? (statusIcons[dto.harnessStatus] || '?') : '×';
+        harnessBadge.setAttribute('aria-label', '하네스 상태: ' + statusLabel);
+        harnessBadge.setAttribute('title', statusLabel);
         harnessBadge.className = 'status-badge-harness ' +
             (!isInstalled ? 'badge-none' : (statusClasses[dto.harnessStatus] || 'badge-muted'));
     }
@@ -691,5 +695,3 @@ document.addEventListener('keydown', (e) => {
         closeIncidentModal();
     }
 });
-
-
