@@ -33,7 +33,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
               <a
                 href="/admin"
                 class="btn btn-secondary"
-                style="font-size: 0.85rem; border-color: var(--warning); color: var(--warning); text-decoration: none;"
+                style="font-size: 0.85rem; text-decoration: none;"
               >
                 어드민 설정
               </a>
@@ -47,7 +47,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
         <main class="dashboard-main">
           {/* Target Repository Setup Guide Card */}
           <div class="glass-card guide-card">
-            <h3 style="margin-top: 0; color: var(--primary-solid); font-size: 1.1rem;">
+            <h3 style="margin-top: 0; color: var(--text-light); font-size: 1.05rem; font-weight: 700;">
               대상 리포지토리 설정 가이드
             </h3>
             <p style="margin: 6px 0 14px 0; color: var(--text-dim); font-size: 0.92rem; line-height: 1.5;">
@@ -57,7 +57,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;">
               {/* 1. API Keys Guide */}
               <div class="guide-box">
-                <strong style="color: var(--primary-solid); font-size: 0.95rem; display: block; margin-bottom: 6px;">
+                <strong style="color: var(--text-light); font-size: 0.95rem; display: block; margin-bottom: 6px;">
                   1. AI API 키 (Secrets) 설정
                 </strong>
                 <p style="margin: 0 0 8px 0; color: var(--text-dim); font-size: 0.85rem; line-height: 1.4;">
@@ -65,20 +65,20 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                 </p>
                 <div style="display: flex; flex-direction: column; gap: 6px;">
                   <div class="guide-code">
-                    <strong style="color: var(--primary-solid);">OPENAI_API_KEY</strong>: OpenAI API 키 (GPT 모델용)
+                    <strong>OPENAI_API_KEY</strong>: OpenAI API 키 (GPT 모델용)
                   </div>
                   <div class="guide-code">
-                    <strong style="color: var(--primary-solid);">ANTHROPIC_API_KEY</strong>: Anthropic API 키 (Claude 모델용)
+                    <strong>ANTHROPIC_API_KEY</strong>: Anthropic API 키 (Claude 모델용)
                   </div>
                   <div class="guide-code">
-                    <strong style="color: var(--primary-solid);">PIKILAND_AI_API_KEY</strong>: 통합 AI API 키 (선택 사항)
+                    <strong>PIKILAND_AI_API_KEY</strong>: 통합 AI API 키 (선택 사항)
                   </div>
                 </div>
               </div>
 
               {/* 2. Workflow Permissions Guide */}
               <div class="guide-box">
-                <strong style="color: var(--warning); font-size: 0.95rem; display: block; margin-bottom: 6px;">
+                <strong style="color: var(--text-light); font-size: 0.95rem; display: block; margin-bottom: 6px;">
                   2. GitHub Actions 쓰기 및 PR 권한 허용
                 </strong>
                 <p style="margin: 0 0 8px 0; color: var(--text-dim); font-size: 0.85rem; line-height: 1.4;">
@@ -336,7 +336,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
         onclick="handleModalBackdropClick(event)"
       >
         <div class="modal-card">
-          <h3 style="margin-top: 0; color: var(--primary-solid); font-size: 1.2rem;">
+          <h3 style="margin-top: 0; color: var(--text-light); font-size: 1.2rem; font-weight: 700;">
             EC2 Fluent Bit 프로비저닝
           </h3>
           <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 16px;">
@@ -434,7 +434,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
       >
         <div class="modal-card" style="max-width: 680px; max-height: 85vh; display: flex; flex-direction: column;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0; color: var(--success); font-size: 1.2rem;">
+            <h3 style="margin: 0; color: var(--text-light); font-size: 1.2rem; font-weight: 700;">
               <span id="incident-modal-repo-title">인시던트 내역</span>
             </h3>
             <button
