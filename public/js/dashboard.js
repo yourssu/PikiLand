@@ -264,7 +264,7 @@ function initRepoOwnerTabs() {
     const tabsBar = document.getElementById('repo-tabs-bar');
     if (!tabsBar) return;
 
-    const cards = document.querySelectorAll('.repo-card[data-owner]');
+    const cards = document.querySelectorAll('.repo-list-item[data-owner]');
     if (cards.length === 0) return;
 
     const ownersMap = new Map();
@@ -299,7 +299,7 @@ function initRepoOwnerTabs() {
 }
 
 function toggleRepoCard(rowEl) {
-    const card = rowEl.closest('.repo-card');
+    const card = rowEl.closest('.repo-list-item');
     if (card) card.classList.toggle('expanded');
 }
 
@@ -322,14 +322,14 @@ function applyRepoFilters() {
     const searchInput = document.getElementById('repo-search-input');
     const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
-    const cards = document.querySelectorAll('.repo-card[data-owner]');
+    const cards = document.querySelectorAll('.repo-list-item[data-owner]');
     cards.forEach(card => {
         const cardOwner = card.getAttribute('data-owner');
         const matchesOwner = currentOwnerFilter === 'all' || cardOwner === currentOwnerFilter;
         const titleEl = card.querySelector('.repo-title');
         const repoName = titleEl ? titleEl.textContent.toLowerCase() : '';
         const matchesSearch = !query || repoName.includes(query);
-        card.style.display = (matchesOwner && matchesSearch) ? 'flex' : 'none';
+        card.style.display = (matchesOwner && matchesSearch) ? 'block' : 'none';
     });
 }
 
