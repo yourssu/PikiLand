@@ -333,13 +333,23 @@ body {
     margin-left: 20px;
 }
 
-.repo-details {
-    display: none;
-    padding: 0 0 20px;
+.repo-details-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease;
 }
 
-.repo-list-item.expanded .repo-details {
-    display: block;
+.repo-list-item.expanded .repo-details-collapse {
+    grid-template-rows: 1fr;
+}
+
+.repo-details {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.repo-list-item.expanded {
+    padding-bottom: 20px;
 }
 
 .repo-active-row {
@@ -376,6 +386,62 @@ body {
     font-weight: 600;
     color: var(--text-dim);
     margin-bottom: 6px;
+}
+
+.form-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.form-label-row label {
+    margin-bottom: 0;
+}
+
+.inline-action-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 6px;
+    color: var(--primary-solid);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.inline-action-link:hover {
+    text-decoration: underline;
+}
+
+.repo-links-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.text-link-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.text-link-btn:hover {
+    color: var(--primary-solid);
+    text-decoration: underline;
+}
+
+.repo-links-divider {
+    color: var(--border-color);
+    font-size: 12px;
 }
 
 .form-group input {
@@ -580,6 +646,11 @@ input:checked + .slider:before {
 .badge-ec2 {
     background: var(--accent2-bg);
     color: var(--accent2);
+}
+
+.badge-muted {
+    background: var(--tab-bg);
+    color: var(--text-dim);
 }
 
 /* Repo row primary status — dot + text, not a pill (reuses badge-* color classes) */
