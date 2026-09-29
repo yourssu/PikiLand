@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, count, eq, ne } from "drizzle-orm";
 import { db } from "../index";
 import { logFingerprintsTable } from "../schema";
 import { LogFingerprint, FingerprintState } from "../../domain/models";
@@ -60,6 +60,20 @@ export class LogFingerprintRepository {
     }));
   }
 
+  public countUnresolvedByRepository(repoFullName: string): number {
+    const result = db
+      .select({ value: count() })
+      .from(logFingerprintsTable)
+      .where(
+        and(
+          eq(logFingerprintsTable.repositoryFullName, repoFullName),
+          ne(logFingerprintsTable.state, "RESOLVED")
+        )
+      )
+      .get();
+    return result?.value || 0;
+  }
+
   public save(fp: LogFingerprint): void {
     const existing = this.findByHash(fp.hash);
     const firstSeen = safeToIsoString(fp.firstSeenAt);
@@ -97,4 +111,3 @@ export class LogFingerprintRepository {
 }
 
 export const logFingerprintRepository = new LogFingerprintRepository();
-

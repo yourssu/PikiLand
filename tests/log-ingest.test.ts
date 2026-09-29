@@ -24,6 +24,30 @@ describe("LogTruncator", () => {
 });
 
 describe("LogIngestService", () => {
+  it("should count every non-resolved fingerprint as an unresolved incident", () => {
+    const repositoryFullName = "yourssu/unresolved-count-repo";
+    const now = new Date();
+
+    for (const [hash, state] of [
+      ["unresolved-count-in-progress", "IN_PROGRESS"],
+      ["unresolved-count-failed", "FAILED"],
+      ["unresolved-count-resolved", "RESOLVED"],
+    ] as const) {
+      logFingerprintRepository.save({
+        hash,
+        repositoryFullName,
+        normalizedSignature: hash,
+        rawLog: hash,
+        state,
+        occurrenceCount: 1,
+        firstSeenAt: now,
+        lastSeenAt: now,
+      });
+    }
+
+    expect(logFingerprintRepository.countUnresolvedByRepository(repositoryFullName)).toBe(2);
+  });
+
   it("should detect genuine errors via regex matching", () => {
     expect(logIngestService.isGenuineError("2026-08-05 ERROR: NullPointerException in AuthService")).toBe(true);
     expect(logIngestService.isGenuineError("FATAL: Out of memory")).toBe(true);

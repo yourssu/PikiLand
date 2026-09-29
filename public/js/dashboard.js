@@ -97,10 +97,21 @@ function updateRepoUiFromDto(dto) {
         }
     }
 
+    const incidentButton = document.querySelector(`.repo-incident-btn[data-repo='${fullName}']`);
+    if (incidentButton && typeof dto.unresolvedIncidentCount === 'number') {
+        const count = dto.unresolvedIncidentCount;
+        incidentButton.textContent = count + '건';
+        incidentButton.setAttribute('data-incident-count', String(count));
+        incidentButton.setAttribute('aria-label', '미해결 인시던트 ' + count + '건 열기');
+        incidentButton.classList.toggle('has-incidents', count > 0);
+    }
+
     // EC2 status badge sync
     const ec2Badge = document.querySelector(`.status-badge-ec2[data-repo='${fullName}']`);
     if (ec2Badge) {
-        ec2Badge.style.display = dto.logIngestActive ? 'inline-flex' : 'none';
+        ec2Badge.textContent = dto.logIngestActive ? '연동됨' : '미연동';
+        ec2Badge.className = 'badge status-badge-ec2 ' +
+            (dto.logIngestActive ? 'badge-active' : 'badge-muted');
     }
 }
 

@@ -1,4 +1,5 @@
 import { repoSettingsRepository } from "../db/repositories/repo-settings.repository";
+import { logFingerprintRepository } from "../db/repositories/log-fingerprint.repository";
 import { systemSettingsRepository } from "../db/repositories/system-settings.repository";
 import { harnessInferenceService } from "./harness-inference.service";
 import { githubAuthService } from "./github-auth.service";
@@ -61,6 +62,7 @@ export class DashboardService {
       harnessSource: settings.harnessSource,
       ralphMaxRetries: settings.ralphMaxRetries,
       hasAppInstalled: true,
+      unresolvedIncidentCount: logFingerprintRepository.countUnresolvedByRepository(settings.repositoryFullName),
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
       logPath: settings.logPath || null,
@@ -104,6 +106,7 @@ export class DashboardService {
             harnessSource: "NONE",
             ralphMaxRetries: 3,
             hasAppInstalled: true,
+            unresolvedIncidentCount: 0,
             logIngestActive: false,
             ec2Ip: null,
             logPath: null,
@@ -172,6 +175,7 @@ export class DashboardService {
       harnessSource: settings.harnessSource,
       ralphMaxRetries: settings.ralphMaxRetries,
       hasAppInstalled,
+      unresolvedIncidentCount: logFingerprintRepository.countUnresolvedByRepository(settings.repositoryFullName),
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
       logPath: settings.logPath || null,
@@ -205,6 +209,7 @@ export class DashboardService {
       harnessSource: settings.harnessSource,
       ralphMaxRetries: settings.ralphMaxRetries,
       hasAppInstalled,
+      unresolvedIncidentCount: logFingerprintRepository.countUnresolvedByRepository(settings.repositoryFullName),
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
       logPath: settings.logPath || null,
@@ -250,6 +255,7 @@ export class DashboardService {
       harnessSource: settings.harnessSource,
       ralphMaxRetries: settings.ralphMaxRetries,
       hasAppInstalled,
+      unresolvedIncidentCount: logFingerprintRepository.countUnresolvedByRepository(settings.repositoryFullName),
       inferenceMessage: inferenceMsg,
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
