@@ -113,11 +113,11 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
 
           <div id="repo-tabs-bar" class="repo-tabs-container"></div>
 
-          <div class="repo-grid">
+          <div class="glass-card repo-list-card">
             {repos.length === 0 ? (
-              <div class="glass-card empty-card" data-owner="all" style="width: 100%; text-align: center; padding: 40px 20px;">
-                <p style="color: var(--text-dim);">연동된 저장소가 없습니다. GitHub 계정에 저장소 접근 권한이 부여되었는지 확인해 주세요.</p>
-              </div>
+              <p style="color: var(--text-dim); text-align: center; padding: 24px 0;">
+                연동된 저장소가 없습니다. GitHub 계정에 저장소 접근 권한이 부여되었는지 확인해 주세요.
+              </p>
             ) : (
               repos.map((repo) => {
                 const owner = repo.fullName.includes("/") ? repo.fullName.split("/")[0] : "other";
@@ -126,7 +126,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                   Boolean(repo.inferredHarnessCmd && repo.inferredHarnessCmd.trim().length > 0);
 
                 return (
-                  <div key={repo.fullName} class="glass-card repo-card" data-owner={owner}>
+                  <div key={repo.fullName} class="repo-list-item" data-owner={owner}>
                     <div class="repo-row" onclick="toggleRepoCard(this)">
                       <div class="repo-row-top">
                         <div class="repo-row-title">
