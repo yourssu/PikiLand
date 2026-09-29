@@ -76,9 +76,11 @@ function updateRepoUiFromDto(dto) {
     const harnessBadge = document.querySelector(`.status-badge-harness[data-repo='${fullName}']`);
     if (harnessBadge && dto.harnessStatus) {
         const isInstalled = dto.hasAppInstalled !== false;
-        harnessBadge.textContent = isInstalled ? '하네스: ' + dto.harnessStatus : '앱 미설치';
+        const statusLabels = { ACTIVE: '활성', PENDING_CONFIRMATION: '확인 대기', FAILED: '감지 실패', NONE: '미설정' };
+        const statusClasses = { ACTIVE: 'badge-active', PENDING_CONFIRMATION: 'badge-pending', FAILED: 'badge-none', NONE: 'badge-muted' };
+        harnessBadge.textContent = isInstalled ? (statusLabels[dto.harnessStatus] || dto.harnessStatus) : '앱 미설치';
         harnessBadge.className = 'status-badge-harness ' +
-            (!isInstalled ? 'badge-none' : (dto.harnessStatus === 'ACTIVE' ? 'badge-active' : (dto.harnessStatus === 'PENDING_CONFIRMATION' ? 'badge-pending' : 'badge-none')));
+            (!isInstalled ? 'badge-none' : (statusClasses[dto.harnessStatus] || 'badge-muted'));
     }
 
     const sourceBadge = document.querySelector(`.status-badge-source[data-repo='${fullName}']`);

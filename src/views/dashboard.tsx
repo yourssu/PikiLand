@@ -125,6 +125,26 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                   repo.harnessStatus === "PENDING_CONFIRMATION" &&
                   Boolean(repo.inferredHarnessCmd && repo.inferredHarnessCmd.trim().length > 0);
 
+                const primaryStatusClass = !repo.hasAppInstalled
+                  ? "badge-none"
+                  : repo.harnessStatus === "ACTIVE"
+                  ? "badge-active"
+                  : repo.harnessStatus === "PENDING_CONFIRMATION"
+                  ? "badge-pending"
+                  : repo.harnessStatus === "FAILED"
+                  ? "badge-none"
+                  : "badge-muted";
+
+                const primaryStatusLabel = !repo.hasAppInstalled
+                  ? "앱 미설치"
+                  : repo.harnessStatus === "ACTIVE"
+                  ? "활성"
+                  : repo.harnessStatus === "PENDING_CONFIRMATION"
+                  ? "확인 대기"
+                  : repo.harnessStatus === "FAILED"
+                  ? "감지 실패"
+                  : "미설정";
+
                 return (
                   <div key={repo.fullName} class="repo-list-item" data-owner={owner}>
                     <div class="repo-row" onclick="toggleRepoCard(this)">
@@ -135,22 +155,14 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         </div>
                       </div>
                       <span
-                        class={`status-badge-harness ${
-                          !repo.hasAppInstalled
-                            ? "badge-none"
-                            : repo.harnessStatus === "ACTIVE"
-                            ? "badge-active"
-                            : repo.harnessStatus === "PENDING_CONFIRMATION"
-                            ? "badge-pending"
-                            : "badge-none"
-                        }`}
+                        class={`status-badge-harness ${primaryStatusClass}`}
                         data-repo={repo.fullName}
                       >
-                        {repo.hasAppInstalled ? `하네스: ${repo.harnessStatus}` : "앱 미설치"}
+                        {primaryStatusLabel}
                       </span>
                     </div>
 
-                    <div class="repo-details">
+                    <div class="repo-details-collapse"><div class="repo-details">
                       <div class="repo-active-row">
                         <div>
                           <div class="repo-active-label">저장소 자동화 활성화</div>
@@ -293,7 +305,17 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                       </div>
 
                       <div class="form-group">
-                        <label for={`harness-${repo.fullName}`}>하네스 검증 명령어</label>
+                        <div class="form-label-row">
+                          <label for={`harness-${repo.fullName}`}>하네스 검증 명령어</label>
+                          <button
+                            type="button"
+                            class="inline-action-link btn-infer-harness"
+                            data-repo={repo.fullName}
+                            onclick="inferHarness(this.getAttribute('data-repo'))"
+                          >
+                            명령어 재추론
+                          </button>
+                        </div>
                         <input
                           type="text"
                           id={`harness-${repo.fullName}`}
@@ -311,17 +333,12 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         >
                           설정 저장
                         </button>
+                      </div>
+
+                      <div class="repo-links-row">
                         <button
                           type="button"
-                          class="btn btn-secondary btn-infer-harness"
-                          data-repo={repo.fullName}
-                          onclick="inferHarness(this.getAttribute('data-repo'))"
-                        >
-                          명령어 재추론
-                        </button>
-                        <button
-                          type="button"
-                          class="btn btn-secondary"
+                          class="text-link-btn"
                           data-repo={repo.fullName}
                           data-ec2-ip={repo.ec2Ip || ""}
                           data-log-path={repo.logPath || ""}
@@ -329,16 +346,17 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         >
                           EC2 연동
                         </button>
+                        <span class="repo-links-divider">·</span>
                         <button
                           type="button"
-                          class="btn btn-secondary"
+                          class="text-link-btn"
                           data-repo={repo.fullName}
                           onclick="openIncidentModal(this.getAttribute('data-repo'))"
                         >
                           인시던트 내역
                         </button>
                       </div>
-                    </div>
+                    </div></div>
                   </div>
                 );
               })
