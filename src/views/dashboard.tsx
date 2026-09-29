@@ -114,6 +114,12 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
           <div id="repo-tabs-bar" class="repo-tabs-container"></div>
 
           <div class="glass-card repo-list-card">
+            {repos.length > 0 && (
+              <div class="repo-list-header">
+                <span aria-hidden="true"></span>
+                <span>하네스 상태</span>
+              </div>
+            )}
             {repos.length === 0 ? (
               <p style="color: var(--text-dim); text-align: center; padding: 24px 0;">
                 연동된 저장소가 없습니다. GitHub 계정에 저장소 접근 권한이 부여되었는지 확인해 주세요.
@@ -145,6 +151,16 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                   ? "감지 실패"
                   : "미설정";
 
+                const primaryStatusIcon = !repo.hasAppInstalled
+                  ? "×"
+                  : repo.harnessStatus === "ACTIVE"
+                  ? "✓"
+                  : repo.harnessStatus === "PENDING_CONFIRMATION"
+                  ? "◷"
+                  : repo.harnessStatus === "FAILED"
+                  ? "!"
+                  : "–";
+
                 return (
                   <div key={repo.fullName} class="repo-list-item" data-owner={owner}>
                     <div class="repo-row" onclick="toggleRepoCard(this)">
@@ -157,8 +173,10 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                       <span
                         class={`status-badge-harness ${primaryStatusClass}`}
                         data-repo={repo.fullName}
+                        aria-label={`하네스 상태: ${primaryStatusLabel}`}
+                        title={primaryStatusLabel}
                       >
-                        {primaryStatusLabel}
+                        {primaryStatusIcon}
                       </span>
                     </div>
 

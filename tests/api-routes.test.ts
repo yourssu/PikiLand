@@ -169,6 +169,10 @@ describe("View Routes SSR Rendering", () => {
     const html = await res.text();
     expect(html).toContain("연동 저장소 목록");
     expect(html).toContain("대상 리포지토리 설정 가이드");
+    expect((html.match(/>하네스 상태</g) || []).length).toBe(1);
+    expect(html).toContain('aria-label="하네스 상태:');
+    expect(html).toContain('title="활성"');
+    expect(html).toContain("✓");
   });
 
   it("should render Admin page HTML for admin users in debug mode", async () => {
