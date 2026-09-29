@@ -9,16 +9,15 @@ export interface SetupPageProps {
 export const SetupPage: FC<SetupPageProps> = ({ repos }) => {
   return (
     <Layout title="PikiLand 🏰 앱 설치 완료" bodyClass="landing-body">
-      <div class="glow-bg"></div>
       <div
         class="glass-card landing-card"
         style="max-width: 620px; text-align: center; margin: 40px auto; padding: 36px 32px;"
       >
-        <div class="castle-icon" style="font-size: 3.5rem; margin-bottom: 12px;">
-          🎉
+        <div class="castle-icon" style="font-size: 2.5rem; margin-bottom: 12px;">
+          🏰
         </div>
         <h1 class="main-title" style="font-size: 2rem; margin-bottom: 8px;">
-          PikiLand GitHub App 설치 완료!
+          PikiLand GitHub App 설치 완료
         </h1>
         <p
           class="tagline"
@@ -29,15 +28,15 @@ export const SetupPage: FC<SetupPageProps> = ({ repos }) => {
         </p>
 
         <div
-          style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 28px; text-align: left;"
+          style="background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 28px; text-align: left;"
         >
           <h3
-            style="margin-top: 0; margin-bottom: 12px; font-size: 1rem; color: #818cf8; display: flex; align-items: center; gap: 8px;"
+            style="margin-top: 0; margin-bottom: 12px; font-size: 1rem; color: var(--primary-solid); display: flex; align-items: center; gap: 8px;"
           >
-            <span>📦</span> 연동된 저장소 (<span>{repos.length}</span>개)
+            연동된 저장소 (<span>{repos.length}</span>개)
           </h3>
           {repos.length === 0 ? (
-            <div style="color: #64748b; font-size: 0.9rem; font-style: italic;">
+            <div style="color: var(--text-dim); font-size: 0.9rem; font-style: italic;">
               아직 감지된 저장소가 없거나 GitHub에서 권한 업데이트를 처리 중입니다.
             </div>
           ) : (
@@ -45,12 +44,10 @@ export const SetupPage: FC<SetupPageProps> = ({ repos }) => {
               {repos.map((repo) => (
                 <li
                   key={repo.fullName}
-                  style="padding: 10px 14px; margin-bottom: 8px; background: rgba(255,255,255,0.04); border-radius: 8px; font-family: monospace; font-size: 0.9rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05);"
+                  style="padding: 10px 14px; margin-bottom: 8px; background: var(--input-bg); border-radius: 8px; font-family: monospace; font-size: 0.9rem; color: var(--text-light); display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color);"
                 >
                   <span>{repo.fullName}</span>
-                  <span style="font-size: 0.75rem; background: rgba(5, 150, 105, 0.2); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.4); padding: 2px 10px; border-radius: 12px; font-weight: 600;">
-                    앱 설치됨
-                  </span>
+                  <span class="badge badge-active">앱 설치됨</span>
                 </li>
               ))}
             </ul>
@@ -62,7 +59,7 @@ export const SetupPage: FC<SetupPageProps> = ({ repos }) => {
           class="btn btn-primary"
           style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; padding: 14px 28px; text-decoration: none; width: 100%; border-radius: 8px; font-weight: 600;"
         >
-          🚀 PikiLand 대시보드 열기
+          PikiLand 대시보드 열기
         </a>
       </div>
       <script

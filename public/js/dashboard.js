@@ -16,7 +16,7 @@ function handlePemFileUpload(event) {
         const statusEl = document.getElementById('pem-file-status');
         if (statusEl) {
             statusEl.style.display = 'block';
-            statusEl.textContent = '✅ 개인키 파일 (' + file.name + ') 로드 완료 (' + content.length + ' 바이트)';
+            statusEl.textContent = '개인키 파일 (' + file.name + ') 로드 완료 (' + content.length + ' 바이트)';
         }
         showToast("개인키 파일이 성공적으로 로드되었습니다.");
     };
@@ -180,7 +180,7 @@ function loadSystemSettings() {
             const statusEl = document.getElementById('pem-file-status');
             if (statusEl && data.githubPrivateKeyContent && data.githubPrivateKeyContent.trim().length > 0) {
                 statusEl.style.display = 'block';
-                statusEl.textContent = '✅ 서버에 개인키(.pem)가 등록되어 있습니다.';
+                statusEl.textContent = '서버에 개인키(.pem)가 등록되어 있습니다.';
             }
         }
     })
@@ -227,7 +227,7 @@ function saveSystemSettings() {
     .finally(() => {
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.textContent = '💾 시스템 설정 저장';
+            saveBtn.textContent = '시스템 설정 저장';
         }
     });
 }
@@ -281,7 +281,7 @@ function initRepoOwnerTabs() {
     allBtn.type = 'button';
     allBtn.className = 'owner-tab-btn active';
     allBtn.setAttribute('data-target-owner', 'all');
-    allBtn.innerHTML = `🌐 전체 저장소 <span style="opacity: 0.7; font-size: 0.8em;">(${cards.length})</span>`;
+    allBtn.innerHTML = `전체 저장소 <span style="opacity: 0.7; font-size: 0.8em;">(${cards.length})</span>`;
     allBtn.onclick = () => switchOwnerTab('all');
     tabsBar.appendChild(allBtn);
 
@@ -291,7 +291,7 @@ function initRepoOwnerTabs() {
         btn.type = 'button';
         btn.className = 'owner-tab-btn';
         btn.setAttribute('data-target-owner', owner);
-        btn.innerHTML = `📁 ${owner} <span style="opacity: 0.7; font-size: 0.8em;">(${count})</span>`;
+        btn.innerHTML = `${owner} <span style="opacity: 0.7; font-size: 0.8em;">(${count})</span>`;
         btn.onclick = () => switchOwnerTab(owner);
         tabsBar.appendChild(btn);
     });
@@ -401,7 +401,7 @@ function handleToggleChange(inputEl) {
 
     if (!isInstalled && inputEl.checked) {
         inputEl.checked = false; // Revert toggle
-        showToast("⚠️ PikiLand GitHub App이 미설치된 저장소입니다. [🔑 앱 설치하기] 버튼을 눌러 먼저 권한을 부여해 주세요.", true);
+        showToast("PikiLand GitHub App이 미설치된 저장소입니다. [앱 설치하기] 버튼을 눌러 먼저 권한을 부여해 주세요.", true);
         return;
     }
 
@@ -482,10 +482,10 @@ function updateFileLabel(input) {
     const label = document.getElementById('pem-file-label');
     if (!label) return;
     if (input.files && input.files[0]) {
-        label.textContent = '✅ ' + input.files[0].name;
+        label.textContent = input.files[0].name;
         label.style.color = 'var(--primary-solid)';
     } else {
-        label.textContent = '📁 클릭하여 SSH 개인키 파일을 선택하세요';
+        label.textContent = '클릭하여 SSH 개인키 파일을 선택하세요';
         label.style.color = 'var(--text-dim)';
     }
 }
@@ -497,7 +497,7 @@ function closeProvisionModal() {
     if (fileInput) fileInput.value = '';
     const label = document.getElementById('pem-file-label');
     if (label) {
-        label.textContent = '📁 클릭하여 SSH 개인키 파일을 선택하세요';
+        label.textContent = '클릭하여 SSH 개인키 파일을 선택하세요';
         label.style.color = 'var(--text-dim)';
     }
 }
@@ -530,7 +530,6 @@ async function openIncidentModal(repoName) {
         if (!Array.isArray(list) || list.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; color: var(--text-dim); padding: 32px 16px; background: var(--input-bg); border-radius: 8px; border: 1px dashed var(--border-color);">
-                    <div style="font-size: 2rem; margin-bottom: 8px;">✨</div>
                     <strong style="color: var(--text-light); display: block; margin-bottom: 4px;">수집된 인시던트가 없습니다</strong>
                     <span style="font-size: 0.82rem;">CI 실패 또는 프로덕션 에러 로그가 감지되면 여기에 자동으로 기록됩니다.</span>
                 </div>
@@ -544,21 +543,21 @@ async function openIncidentModal(repoName) {
             let stateLabel = item.state;
             if (item.state === 'RESOLVED') {
                 stateBadgeClass = 'badge-active';
-                stateLabel = '✅ 해결 완료 (RESOLVED)';
+                stateLabel = '해결 완료 (RESOLVED)';
             } else if (item.state === 'PR_CREATED') {
                 stateBadgeClass = 'badge-info';
-                stateLabel = '🚀 PR 생성됨 (PR_CREATED)';
+                stateLabel = 'PR 생성됨 (PR_CREATED)';
             } else if (item.state === 'IN_PROGRESS') {
                 stateBadgeClass = 'badge-pending';
-                stateLabel = '⏳ 자가 치유 진행 중 (IN_PROGRESS)';
+                stateLabel = '자가 치유 진행 중 (IN_PROGRESS)';
             } else if (item.state === 'FAILED') {
                 stateBadgeClass = 'badge-none';
-                stateLabel = '❌ 패치 실패 (FAILED)';
+                stateLabel = '패치 실패 (FAILED)';
             }
 
             const seenDate = item.lastSeenAt ? new Date(item.lastSeenAt).toLocaleString() : '-';
             const prLinkHtml = item.prUrl
-                ? `<a href="${item.prUrl}" target="_blank" rel="noreferrer" class="btn btn-secondary" style="font-size: 0.75rem; padding: 2px 8px; border-color: #6366f1; color: #818cf8; text-decoration: none;">🔗 패치 PR 보기</a>`
+                ? `<a href="${item.prUrl}" target="_blank" rel="noreferrer" class="btn btn-secondary" style="font-size: 0.75rem; padding: 2px 8px; border-color: var(--primary-solid); color: var(--primary-solid); text-decoration: none;">패치 PR 보기</a>`
                 : '';
 
             return `
@@ -566,11 +565,11 @@ async function openIncidentModal(repoName) {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
                         <span class="badge ${stateBadgeClass}">${stateLabel}</span>
                         <div style="display: flex; gap: 6px; align-items: center;">
-                            <span style="font-size: 0.75rem; color: var(--text-dim);">발생 횟수: <strong style="color: #fbbf24;">${item.occurrenceCount || 1}회</strong></span>
+                            <span style="font-size: 0.75rem; color: var(--text-dim);">발생 횟수: <strong style="color: var(--warning);">${item.occurrenceCount || 1}회</strong></span>
                             ${prLinkHtml}
                         </div>
                     </div>
-                    <div style="font-family: monospace; font-size: 0.82rem; color: var(--text-light); word-break: break-all; margin-bottom: 6px; background: rgba(0,0,0,0.25); padding: 6px 8px; border-radius: 4px;">
+                    <div style="font-family: monospace; font-size: 0.82rem; color: var(--text-light); word-break: break-all; margin-bottom: 6px; background: var(--tab-bg); padding: 6px 8px; border-radius: 4px;">
                         ${escapeHtml(item.normalizedSignature || item.rawLog || 'Unknown signature')}
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim);">
@@ -582,7 +581,7 @@ async function openIncidentModal(repoName) {
         }).join('');
     } catch (err) {
         if (container) {
-            container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 20px;">오류: ${err.message}</div>`;
+            container.innerHTML = `<div style="text-align: center; color: var(--danger); padding: 20px;">오류: ${err.message}</div>`;
         }
     }
 }
@@ -646,15 +645,15 @@ async function submitEc2Provision() {
         });
         const data = await res.json();
         if (res.ok) {
-            showToast("✅ EC2 Fluent Bit 프로비저닝이 완료되었습니다.");
+            showToast("EC2 Fluent Bit 프로비저닝이 완료되었습니다.");
             closeProvisionModal();
             const ec2Badge = document.querySelector('.status-badge-ec2[data-repo="' + repo + '"]');
             if (ec2Badge) ec2Badge.style.display = 'inline-flex';
         } else {
-            showToast("❌ 프로비저닝 실패: " + (data.message || '알 수 없는 오류'), true);
+            showToast("프로비저닝 실패: " + (data.message || '알 수 없는 오류'), true);
         }
     } catch (err) {
-        showToast("❌ 서버 통신 오류: " + err.message, true);
+        showToast("서버 통신 오류: " + err.message, true);
     } finally {
         if (btn) {
             btn.disabled = false;

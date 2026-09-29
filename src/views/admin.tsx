@@ -7,8 +7,7 @@ export interface AdminPageProps {
 
 export const AdminPage: FC<AdminPageProps> = ({ username }) => {
   return (
-    <Layout title="어드민 시스템 설정 🛡️ PikiLand">
-      <div class="glow-bg"></div>
+    <Layout title="어드민 시스템 설정 🏰 PikiLand">
       <div class="container">
         <header class="glass-header">
           <div class="logo">🏰 PikiLand Admin</div>
@@ -36,8 +35,8 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
 
         <main class="dashboard-main">
           <div class="main-header" style="margin-bottom: 24px;">
-            <h1 style="color: #fbbf24; display: flex; align-items: center; gap: 10px;">
-              🛡️ 중앙 시스템 설정
+            <h1 style="color: var(--warning);">
+              중앙 시스템 설정
             </h1>
             <p>PikiLand App 인증 정보, OAuth 자격 증명 및 서버 전용 개인키를 관리합니다.</p>
           </div>
@@ -45,16 +44,16 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
           {/* Global System Settings Panel (Admin Only Page) */}
           <div
             class="glass-card admin-card"
-            style="border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05); padding: 24px; border-radius: 12px;"
+            style="border-left: 4px solid var(--warning); background: var(--card-bg); padding: 24px; border-radius: 12px;"
           >
             <div
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;"
             >
               <div>
-                <h2 style="margin: 0; color: #fbbf24; font-size: 1.25rem;">
-                  ⚙️ GitHub App 및 OAuth 인증 정보
+                <h2 style="margin: 0; color: var(--warning); font-size: 1.25rem;">
+                  GitHub App 및 OAuth 인증 정보
                 </h2>
-                <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #94a3b8;">
+                <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: var(--text-dim);">
                   웹훅 검증 및 GitHub API 요청 시 Coordinator 서버가 사용하는 중앙 인증 정보입니다.
                 </p>
               </div>
@@ -64,7 +63,7 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
                 onclick="saveSystemSettings()"
                 style="padding: 10px 20px; font-weight: 600;"
               >
-                💾 시스템 설정 저장
+                시스템 설정 저장
               </button>
             </div>
 
@@ -95,14 +94,14 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
               </div>
               <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="sys-pikilandServerUrl" style="font-weight: 600;">
-                  🌐 PikiLand Web Server URL (HTTPS 공인 도메인 주소)
+                  PikiLand Web Server URL (HTTPS 공인 도메인 주소)
                 </label>
                 <input
                   type="text"
                   id="sys-pikilandServerUrl"
                   placeholder="예: https://pikiland.yourdomain.com"
                 />
-                <small style="color: #94a3b8; font-size: 0.8rem; margin-top: 4px; display: block;">
+                <small style="color: var(--text-dim); font-size: 0.8rem; margin-top: 4px; display: block;">
                   GitHub Actions Runner가 에러 로그를 역조회할 때 접속할 서버의 공개 URL입니다.
                 </small>
               </div>
@@ -111,7 +110,7 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
                   for="sys-githubPrivateKeyFile"
                   style="font-weight: 600; display: block; margin-bottom: 6px;"
                 >
-                  📂 GitHub App 개인키 파일 (.pem 파일 업로드)
+                  GitHub App 개인키 파일 (.pem 파일 업로드)
                 </label>
                 <input
                   type="file"
@@ -123,9 +122,9 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
                 <input type="hidden" id="sys-githubPrivateKeyContent" />
                 <div
                   id="pem-file-status"
-                  style="font-size: 0.88rem; color: #10b981; margin-top: 8px; display: none;"
+                  style="font-size: 0.88rem; color: var(--success); margin-top: 8px; display: none;"
                 >
-                  ✅ 개인키 (.pem) 파일이 정상적으로 로드되었습니다.
+                  개인키 (.pem) 파일이 정상적으로 로드되었습니다.
                 </div>
               </div>
             </div>
@@ -134,11 +133,11 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
           {/* Server-Side AI Provider Settings Panel (Admin Only) */}
           <div
             class="glass-card admin-card"
-            style="border-left: 4px solid #6366f1; background: rgba(99, 102, 241, 0.05); padding: 24px; border-radius: 12px; margin-top: 24px;"
+            style="border-left: 4px solid var(--primary-solid); background: var(--card-bg); padding: 24px; border-radius: 12px; margin-top: 24px;"
           >
             <div style="margin-bottom: 20px;">
               <h2 style="margin: 0; color: var(--primary-solid); font-size: 1.25rem;">
-                🤖 중앙 AI Provider 설정 (서버 전용)
+                중앙 AI Provider 설정 (서버 전용)
               </h2>
               <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: var(--text-dim);">
                 Coordinator 서버 측의 로그 및 하네스 분석에 사용됩니다.<br />
