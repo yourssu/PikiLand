@@ -72,12 +72,13 @@ function updateRepoUiFromDto(dto) {
         failedBox.style.display = dto.harnessStatus === 'FAILED' ? 'block' : 'none';
     }
 
-    // Harness status badge sync
+    // Harness status badge sync (repo row's primary status — reflects "app not installed" too)
     const harnessBadge = document.querySelector(`.status-badge-harness[data-repo='${fullName}']`);
     if (harnessBadge && dto.harnessStatus) {
-        harnessBadge.textContent = '하네스: ' + dto.harnessStatus;
-        harnessBadge.className = 'badge status-badge-harness ' + 
-            (dto.harnessStatus === 'ACTIVE' ? 'badge-active' : (dto.harnessStatus === 'PENDING_CONFIRMATION' ? 'badge-pending' : 'badge-none'));
+        const isInstalled = dto.hasAppInstalled !== false;
+        harnessBadge.textContent = isInstalled ? '하네스: ' + dto.harnessStatus : '앱 미설치';
+        harnessBadge.className = 'status-badge-harness ' +
+            (!isInstalled ? 'badge-none' : (dto.harnessStatus === 'ACTIVE' ? 'badge-active' : (dto.harnessStatus === 'PENDING_CONFIRMATION' ? 'badge-pending' : 'badge-none')));
     }
 
     const sourceBadge = document.querySelector(`.status-badge-source[data-repo='${fullName}']`);
@@ -295,6 +296,11 @@ function initRepoOwnerTabs() {
         btn.onclick = () => switchOwnerTab(owner);
         tabsBar.appendChild(btn);
     });
+}
+
+function toggleRepoCard(rowEl) {
+    const card = rowEl.closest('.repo-card');
+    if (card) card.classList.toggle('expanded');
 }
 
 function switchOwnerTab(selectedOwner) {

@@ -117,8 +117,16 @@ export const AdminPage: FC<AdminPageProps> = ({ username }) => {
                   id="sys-githubPrivateKeyFile"
                   accept=".pem,.key"
                   onchange="handlePemFileUpload(event)"
-                  style="padding: 12px; border: 1px dashed var(--border-color); border-radius: 8px; background: var(--input-bg); cursor: pointer; width: 100%; color: var(--text-light);"
+                  style="display: none;"
                 />
+                <div
+                  onclick="document.getElementById('sys-githubPrivateKeyFile').click()"
+                  style="width: 100%; background: var(--input-bg); border: 1px dashed var(--border-color); color: var(--text-dim); padding: 16px 12px; border-radius: 8px; cursor: pointer; text-align: center; font-size: 0.85rem; transition: border-color 0.15s;"
+                  onmouseover="this.style.borderColor='var(--primary-solid)'"
+                  onmouseout="this.style.borderColor='var(--border-color)'"
+                >
+                  클릭하여 .pem 파일을 선택하세요
+                </div>
                 <input type="hidden" id="sys-githubPrivateKeyContent" />
                 <div
                   id="pem-file-status"
