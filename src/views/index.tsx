@@ -4,7 +4,6 @@ import { Layout } from "./layout";
 export const IndexPage: FC = () => {
   return (
     <Layout title="PikiLand 🏰 AI 자가 치유 오토파일럿" bodyClass="landing-body">
-      <div class="glow-bg"></div>
       <div class="glass-card landing-card">
         <div class="castle-icon">🏰</div>
         <h1 class="main-title">PikiLand</h1>
@@ -12,15 +11,15 @@ export const IndexPage: FC = () => {
 
         <div class="features-list">
           <div class="feature-item">
-            <span class="feature-bullet">⚡</span>
+            <span class="feature-bullet"></span>
             <span class="feature-text">TypeScript & Bun 기반 초고속 오류 로그 분석</span>
           </div>
           <div class="feature-item">
-            <span class="feature-bullet">🤖</span>
+            <span class="feature-bullet"></span>
             <span class="feature-text">AI 패치 생성 및 하네스(Harness) 검증 루프</span>
           </div>
           <div class="feature-item">
-            <span class="feature-bullet">💬</span>
+            <span class="feature-bullet"></span>
             <span class="feature-text">팀을 위한 검증된 PR 및 Slack 알림 자동화</span>
           </div>
         </div>

@@ -11,7 +11,6 @@ export interface DashboardPageProps {
 export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos }) => {
   return (
     <Layout title="대시보드 🏰 PikiLand">
-      <div class="glow-bg"></div>
       <div class="container">
         <header class="glass-header">
           <div class="logo">🏰 PikiLand</div>
@@ -34,9 +33,9 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
               <a
                 href="/admin"
                 class="btn btn-secondary"
-                style="font-size: 0.85rem; border-color: #f59e0b; color: #fbbf24; text-decoration: none;"
+                style="font-size: 0.85rem; border-color: var(--warning); color: var(--warning); text-decoration: none;"
               >
-                ⚙️ 어드민 설정
+                어드민 설정
               </a>
             )}
             <a href="/logout" class="btn btn-secondary btn-logout">
@@ -48,8 +47,8 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
         <main class="dashboard-main">
           {/* Target Repository Setup Guide Card */}
           <div class="glass-card guide-card">
-            <h3 style="margin-top: 0; color: var(--primary-solid); font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-              ⚙️ 대상 리포지토리 설정 가이드
+            <h3 style="margin-top: 0; color: var(--primary-solid); font-size: 1.1rem;">
+              대상 리포지토리 설정 가이드
             </h3>
             <p style="margin: 6px 0 14px 0; color: var(--text-dim); font-size: 0.92rem; line-height: 1.5;">
               PikiLand가 대상 리포지토리에서 버그를 재현/수정하고 PR을 생성하려면 아래 2가지 설정을 리포지토리에 완료해야 합니다.
@@ -59,7 +58,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
               {/* 1. API Keys Guide */}
               <div class="guide-box">
                 <strong style="color: var(--primary-solid); font-size: 0.95rem; display: block; margin-bottom: 6px;">
-                  🔑 1. AI API 키 (Secrets) 설정
+                  1. AI API 키 (Secrets) 설정
                 </strong>
                 <p style="margin: 0 0 8px 0; color: var(--text-dim); font-size: 0.85rem; line-height: 1.4;">
                   <strong>Repository Settings → Secrets and variables → Actions</strong> 경로에서 사용할 AI 키를 등록하세요:
@@ -79,8 +78,8 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
 
               {/* 2. Workflow Permissions Guide */}
               <div class="guide-box">
-                <strong style="color: #f59e0b; font-size: 0.95rem; display: block; margin-bottom: 6px;">
-                  🔒 2. GitHub Actions 쓰기 및 PR 권한 허용
+                <strong style="color: var(--warning); font-size: 0.95rem; display: block; margin-bottom: 6px;">
+                  2. GitHub Actions 쓰기 및 PR 권한 허용
                 </strong>
                 <p style="margin: 0 0 8px 0; color: var(--text-dim); font-size: 0.85rem; line-height: 1.4;">
                   권한 설정이 비활성화되어 있으면 PR 생성 시 <code>403 Permission Denied</code> 에러가 발생합니다.
@@ -89,8 +88,8 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                   <strong>Repository Settings → Actions → General → Workflow permissions</strong>:
                 </p>
                 <ul style="margin: 0 0 0 18px; padding: 0; color: var(--text-dim); font-size: 0.83rem; line-height: 1.5;">
-                  <li>🔘 <strong>Read and write permissions</strong> 선택</li>
-                  <li>☑️ <strong>Allow GitHub Actions to create and approve pull requests</strong> 체크</li>
+                  <li><strong>Read and write permissions</strong> 선택</li>
+                  <li><strong>Allow GitHub Actions to create and approve pull requests</strong> 체크</li>
                 </ul>
               </div>
             </div>
@@ -126,7 +125,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                           style="margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;"
                         >
                           <span class={`badge ${repo.hasAppInstalled ? "badge-active" : "badge-none"}`}>
-                            {repo.hasAppInstalled ? "✅ 앱 설치됨" : "⚠️ 앱 미설치"}
+                            {repo.hasAppInstalled ? "앱 설치됨" : "앱 미설치"}
                           </span>
                           <span
                             class={`badge status-badge-harness ${
@@ -153,7 +152,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                             data-repo={repo.fullName}
                             style={repo.logIngestActive ? "display: inline-flex;" : "display: none;"}
                           >
-                            📡 EC2 수집 활성
+                            EC2 수집 활성
                           </span>
                           {!repo.hasAppInstalled && (
                             <a
@@ -161,9 +160,9 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                               target="_blank"
                               rel="noreferrer"
                               class="btn btn-secondary"
-                              style="font-size: 0.75rem; padding: 2px 8px; color: #fbbf24; border-color: #f59e0b; text-decoration: none;"
+                              style="font-size: 0.75rem; padding: 2px 8px; color: var(--warning); border-color: var(--warning); text-decoration: none;"
                             >
-                              🔑 앱 설치하기
+                              앱 설치하기
                             </a>
                           )}
                         </div>
@@ -228,12 +227,12 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         class="inferred-box"
                         style={
                           isPendingInference
-                            ? "background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: block;"
-                            : "background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;"
+                            ? "background: var(--warning-bg); border: 1px solid var(--warning); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: block;"
+                            : "background: var(--warning-bg); border: 1px solid var(--warning); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;"
                         }
                       >
-                        <label style="color: #ffc107; font-weight: 600;">
-                          💡 자동 추론된 테스트 명령어 (승인 대기 중):
+                        <label style="color: var(--warning); font-weight: 600;">
+                          자동 추론된 테스트 명령어 (승인 대기 중):
                         </label>
                         <div
                           id={`inferred-cmd-${repo.fullName}`}
@@ -258,12 +257,12 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         class="failed-box"
                         style={
                           repo.harnessStatus === "FAILED"
-                            ? "background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: block;"
-                            : "background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;"
+                            ? "background: var(--danger-bg); border: 1px solid var(--danger); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: block;"
+                            : "background: var(--danger-bg); border: 1px solid var(--danger); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;"
                         }
                       >
-                        <div style="color: #ef4444; font-size: 0.85rem; line-height: 1.4;">
-                          ⚠️ <strong>테스트 명령어 자동 감지 실패</strong>: 저장소 파일에서 테스트 도구를 인식하지 못했습니다. 아래 입력란에 검증 명령어(예: <code>./gradlew test</code>, <code>bun test</code>, <code>pytest</code>)를 직접 입력해 주세요.
+                        <div style="color: var(--danger); font-size: 0.85rem; line-height: 1.4;">
+                          <strong>테스트 명령어 자동 감지 실패</strong>: 저장소 파일에서 테스트 도구를 인식하지 못했습니다. 아래 입력란에 검증 명령어(예: <code>./gradlew test</code>, <code>bun test</code>, <code>pytest</code>)를 직접 입력해 주세요.
                         </div>
                       </div>
 
@@ -299,22 +298,22 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         <button
                           type="button"
                           class="btn btn-secondary"
-                          style="font-size: 0.85rem; border-color: #6366f1; color: #818cf8;"
+                          style="font-size: 0.85rem; border-color: var(--primary-solid); color: var(--primary-solid);"
                           data-repo={repo.fullName}
                           data-ec2-ip={repo.ec2Ip || ""}
                           data-log-path={repo.logPath || ""}
                           onclick="openProvisionModal(this.getAttribute('data-repo'), this)"
                         >
-                          ⚡ EC2 연동
+                          EC2 연동
                         </button>
                         <button
                           type="button"
                           class="btn btn-secondary"
-                          style="font-size: 0.85rem; border-color: #10b981; color: #34d399;"
+                          style="font-size: 0.85rem; border-color: var(--success); color: var(--success);"
                           data-repo={repo.fullName}
                           onclick="openIncidentModal(this.getAttribute('data-repo'))"
                         >
-                          📋 인시던트 내역
+                          인시던트 내역
                         </button>
                       </div>
                     </div>
@@ -405,7 +404,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                 onmouseover="this.style.borderColor='var(--primary-solid)'"
                 onmouseout="this.style.borderColor='var(--border-color)'"
               >
-                <span id="pem-file-label">📁 클릭하여 SSH 개인키 파일을 선택하세요</span>
+                <span id="pem-file-label">클릭하여 SSH 개인키 파일을 선택하세요</span>
               </div>
             </div>
             <p style="margin-top: 6px; font-size: 0.75rem; color: var(--text-dim);">
@@ -432,8 +431,8 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
       >
         <div class="modal-card" style="max-width: 680px; max-height: 85vh; display: flex; flex-direction: column;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0; color: #34d399; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
-              <span>📋</span> <span id="incident-modal-repo-title">인시던트 내역</span>
+            <h3 style="margin: 0; color: var(--success); font-size: 1.2rem;">
+              <span id="incident-modal-repo-title">인시던트 내역</span>
             </h3>
             <button
               type="button"
