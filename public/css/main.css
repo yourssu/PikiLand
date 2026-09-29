@@ -170,6 +170,29 @@ body {
     color: var(--text-dim);
 }
 
+/* Repo Search */
+.repo-search-bar {
+    margin-bottom: 16px;
+}
+
+.repo-search-input {
+    width: 100%;
+    max-width: 320px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text-light);
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.15s ease;
+}
+
+.repo-search-input:focus {
+    outline: none;
+    border-color: var(--primary-solid);
+}
+
 /* Owner Repository Tabs */
 .repo-tabs-container {
     display: flex;
@@ -311,6 +334,30 @@ body {
 
 .repo-card.expanded .repo-details {
     display: block;
+}
+
+.repo-active-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+
+.repo-active-label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-light);
+}
+
+.repo-active-hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
 }
 
 .form-group {
