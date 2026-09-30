@@ -5,6 +5,11 @@ out/
 coverage/
 *.tsbuildinfo
 
+# Playwright
+/playwright-report/
+/test-results/
+/blob-report/
+
 # Database (SQLite & Local DB)
 data/
 *.sqlite

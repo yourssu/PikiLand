@@ -25,7 +25,7 @@ jobs:
         run: ./node_modules/.bin/tsc --noEmit
 
       - name: Run unit & integration tests
-        run: bun test
+        run: bun run test
 
       - name: Verify Docker Build
         run: docker build -t pikiland-server:test .

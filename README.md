@@ -93,7 +93,10 @@ bun dev
 | `PIKILAND_ADMIN_USERS` | 어드민 페이지(`/admin`)에 접근할 수 있는 GitHub 사용자명 (쉼표 구분) |
 | `DATABASE_PATH` | SQLite DB 파일 경로 (기본값: `./data/pikiland.sqlite`) |
 | `LOG_RECEIVER_TOKEN` | EC2 Fluent Bit 원격 로그 수신 인증 Bearer 토큰 |
-| `DEBUG` (또는 `PIKILAND_DEBUG`) | 디버그 모드 여부 (`true` 시 서명 및 어드민 권한 검사 우회, 기본값: `false`) |
+| `DEBUG` (또는 `PIKILAND_DEBUG`) | 디버그 모드 여부 (`true` 시 웹훅 서명 검증 및 저장소 소유권 검사까지 우회, 기본값: `false`) |
+| `PIKILAND_UI_PREVIEW` | UI 미리보기 모드 (`true` 시 GitHub OAuth 로그인만 우회 — 웹훅/소유권 검사는 그대로 유지, 기본값: `false`) |
+
+`DEBUG`와 `PIKILAND_UI_PREVIEW`는 `NODE_ENV=production`이면 값과 무관하게 항상 비활성화됩니다.
 
 ---
 
@@ -104,6 +107,17 @@ Webhook HMAC 검증, 로그 정제 및 시그니처 해싱, Harness 추론 단�
 ```bash
 bun test
 ```
+
+### UI/E2E 테스트 (Playwright)
+
+랜딩/대시보드/어드민/설치완료 화면과 다크·라이트 테마 토글을 실제 브라우저로 검증합니다. 개발자의 로컬 `.env`와는 완전히 분리된 전용 포트(4300)·전용 SQLite 파일로 서버를 띄우므로 `bun run dev`로 띄워둔 서버나 프로덕션 설정과 섞이지 않습니다.
+
+```bash
+bunx playwright install --with-deps chromium  # 최초 1회
+bun run test:e2e
+```
+
+`/admin`처럼 로그인 여부에 따라 응답이 달라지는 화면은 `tests/e2e/support/auth.ts`의 `loginAs()`로 실제 세션 쿠키 포맷을 주입해 검증합니다 (`PIKILAND_UI_PREVIEW`로 우회하지 않고 실제 인증 코드 경로를 그대로 통과).
 
 ---
 

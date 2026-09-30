@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { systemSettingsRepository } from "../db/repositories/system-settings.repository";
+import { isDebugMode, isUiPreviewMode } from "../config/debug";
 
 export const authRoutes = new Hono();
 
@@ -14,7 +15,7 @@ export function getEffectiveOAuthConfig() {
 export function getSessionUser(c: any): { username: string; accessToken?: string; isAdmin: boolean } | null {
   const cookieStr = getCookie(c, "pikiland_session");
   if (!cookieStr) {
-    if (process.env.DEBUG === "true" || process.env.PIKILAND_DEBUG === "true") {
+    if (isUiPreviewMode()) {
       return { username: "local-dev-user", accessToken: undefined, isAdmin: true };
     }
     return null;
@@ -23,8 +24,7 @@ export function getSessionUser(c: any): { username: string; accessToken?: string
   try {
     const session = JSON.parse(Buffer.from(cookieStr, "base64").toString("utf-8"));
     const adminUsers = (process.env.PIKILAND_ADMIN_USERS || "").split(",").map((u) => u.trim().toLowerCase());
-    const isDebug = process.env.DEBUG === "true" || process.env.PIKILAND_DEBUG === "true";
-    const isAdmin = isDebug || (session.username && adminUsers.includes(session.username.toLowerCase()));
+    const isAdmin = isDebugMode() || (session.username && adminUsers.includes(session.username.toLowerCase()));
 
     return {
       username: session.username,

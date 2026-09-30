@@ -8,6 +8,7 @@ import { githubAuthService } from "../services/github-auth.service";
 import { repoSettingsRepository } from "../db/repositories/repo-settings.repository";
 import { getSessionUser } from "./auth.routes";
 import { RepoSettingsDto, SystemSettingsDto } from "../domain/models";
+import { isDebugMode } from "../config/debug";
 
 export const settingsRoutes = new Hono();
 
@@ -15,8 +16,7 @@ export async function isAuthorizedForRepo(
   fullName: string,
   user: { username: string; accessToken?: string; isAdmin: boolean } | null
 ): Promise<boolean> {
-  const isDebug = process.env.DEBUG === "true" || process.env.PIKILAND_DEBUG === "true";
-  if (isDebug) return true;
+  if (isDebugMode()) return true;
   if (!user) return false;
   if (user.isAdmin) return true;
 
