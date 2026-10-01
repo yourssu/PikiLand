@@ -125,24 +125,26 @@ function updateRepoUiFromDto(dto) {
 
 function populateBranchSelect(selectEl, branches) {
     const current = selectEl.getAttribute('data-current') || '';
-    const noneOption = selectEl.querySelector('option[value=""]');
-    selectEl.innerHTML = '';
-    if (noneOption) selectEl.appendChild(noneOption);
-    else {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = '전체 브랜치 (기본 브랜치 자동 감지)';
-        selectEl.appendChild(opt);
+    // Keep the already-saved branch visible even if the live GitHub fetch
+    // came back empty or failed to include it (e.g. no app installation),
+    // so the UI never silently appears to revert a saved setting.
+    const names = [...branches];
+    if (current && !names.includes(current)) {
+        names.unshift(current);
     }
-    branches.forEach((name) => {
+
+    selectEl.innerHTML = '';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '전체 브랜치 (기본 브랜치 자동 감지)';
+    selectEl.appendChild(noneOpt);
+    names.forEach((name) => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = name;
         selectEl.appendChild(opt);
     });
-    if ([...selectEl.options].some((opt) => opt.value === current)) {
-        selectEl.value = current;
-    }
+    selectEl.value = current;
 }
 
 function loadAllBranchDropdowns() {
