@@ -54,6 +54,14 @@ function updateRepoUiFromDto(dto) {
     const ralph = document.getElementById('ralph-' + fullName);
     if (ralph) ralph.value = dto.ralphMaxRetries || 3;
 
+    const branchSelect = document.getElementById('branch-' + fullName);
+    if (branchSelect) {
+        branchSelect.setAttribute('data-current', dto.targetBranch || '');
+        if ([...branchSelect.options].some((opt) => opt.value === (dto.targetBranch || ''))) {
+            branchSelect.value = dto.targetBranch || '';
+        }
+    }
+
     // Inferred harness banner live sync
     const inferredBox = document.getElementById('inferred-box-' + fullName);
     const inferredCmd = document.getElementById('inferred-cmd-' + fullName);
@@ -115,6 +123,40 @@ function updateRepoUiFromDto(dto) {
     }
 }
 
+function populateBranchSelect(selectEl, branches) {
+    const current = selectEl.getAttribute('data-current') || '';
+    const noneOption = selectEl.querySelector('option[value=""]');
+    selectEl.innerHTML = '';
+    if (noneOption) selectEl.appendChild(noneOption);
+    else {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '전체 브랜치 (기본 브랜치 자동 감지)';
+        selectEl.appendChild(opt);
+    }
+    branches.forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        selectEl.appendChild(opt);
+    });
+    if ([...selectEl.options].some((opt) => opt.value === current)) {
+        selectEl.value = current;
+    }
+}
+
+function loadAllBranchDropdowns() {
+    const selects = document.querySelectorAll('select[id^="branch-"][data-repo]');
+    selects.forEach((selectEl) => {
+        const repoFullName = selectEl.getAttribute('data-repo');
+        if (!repoFullName) return;
+        fetch('/api/settings/branches?repo=' + encodeURIComponent(repoFullName))
+            .then((res) => (res.ok ? res.json() : { branches: [] }))
+            .then((data) => populateBranchSelect(selectEl, data.branches || []))
+            .catch((err) => console.error('Failed to load branches for ' + repoFullName, err));
+    });
+}
+
 function saveSettings(repoFullName, triggeredFromToggle = false) {
     const toggleEl = document.getElementById('toggle-' + repoFullName);
     const active = toggleEl ? toggleEl.checked : false;
@@ -125,6 +167,8 @@ function saveSettings(repoFullName, triggeredFromToggle = false) {
     const harnessCmd = document.getElementById('harness-' + repoFullName).value;
     const ralphInput = document.getElementById('ralph-' + repoFullName);
     const ralphMaxRetries = ralphInput ? parseInt(ralphInput.value, 10) || 3 : 3;
+    const branchSelect = document.getElementById('branch-' + repoFullName);
+    const targetBranch = branchSelect && branchSelect.value ? branchSelect.value : null;
 
     const payload = {
         fullName: repoFullName,
@@ -133,7 +177,8 @@ function saveSettings(repoFullName, triggeredFromToggle = false) {
         customModel: customModel,
         customBaseUrl: customBaseUrl,
         harnessCmd: harnessCmd,
-        ralphMaxRetries: ralphMaxRetries
+        ralphMaxRetries: ralphMaxRetries,
+        targetBranch: targetBranch
     };
 
     const saveBtn = document.querySelector(`.btn-save[data-repo='${repoFullName}']`);
@@ -698,6 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     loadSystemSettings();
     initRepoOwnerTabs();
+    loadAllBranchDropdowns();
 });
 
 document.addEventListener('keydown', (e) => {

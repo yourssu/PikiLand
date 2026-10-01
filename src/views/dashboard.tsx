@@ -243,6 +243,25 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                       </div>
 
                       <div class="form-group">
+                        <label for={`branch-${repo.fullName}`}>적용 브랜치</label>
+                        <select
+                          id={`branch-${repo.fullName}`}
+                          data-repo={repo.fullName}
+                          data-current={repo.targetBranch || ""}
+                        >
+                          <option value="">전체 브랜치 (기본 브랜치 자동 감지)</option>
+                          {repo.targetBranch && (
+                            <option value={repo.targetBranch} selected>
+                              {repo.targetBranch}
+                            </option>
+                          )}
+                        </select>
+                        <div class="repo-active-hint" style="margin-top: 4px;">
+                          선택한 브랜치에서 발생한 이벤트에만 자동 패치가 적용됩니다.
+                        </div>
+                      </div>
+
+                      <div class="form-group">
                         <label for={`slack-${repo.fullName}`}>Slack 웹훅 URL</label>
                         <input
                           type="text"
