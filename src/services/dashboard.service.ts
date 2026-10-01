@@ -66,6 +66,7 @@ export class DashboardService {
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
       logPath: settings.logPath || null,
+      targetBranch: settings.targetBranch || null,
     };
   }
 
@@ -110,6 +111,7 @@ export class DashboardService {
             logIngestActive: false,
             ec2Ip: null,
             logPath: null,
+            targetBranch: null,
           });
         }
       }
@@ -137,6 +139,7 @@ export class DashboardService {
         existing.inferredHarnessCmd = null;
       }
       existing.ralphMaxRetries = safeRetries;
+      existing.targetBranch = dto.targetBranch;
       settings = existing;
     } else {
       const hasHarness = Boolean(dto.harnessCmd && dto.harnessCmd.trim().length > 0);
@@ -151,6 +154,7 @@ export class DashboardService {
         harnessStatus: hasHarness ? "ACTIVE" : "NONE",
         harnessSource: hasHarness ? "USER_PROVIDED" : "NONE",
         ralphMaxRetries: safeRetries,
+        targetBranch: dto.targetBranch,
       };
     }
 
@@ -179,6 +183,7 @@ export class DashboardService {
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
       logPath: settings.logPath || null,
+      targetBranch: settings.targetBranch || null,
     };
   }
 
@@ -213,6 +218,7 @@ export class DashboardService {
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
       logPath: settings.logPath || null,
+      targetBranch: settings.targetBranch || null,
     };
   }
 
@@ -260,6 +266,7 @@ export class DashboardService {
       logIngestActive: Boolean(settings.logIngestActive),
       ec2Ip: settings.ec2Ip || null,
       logPath: settings.logPath || null,
+      targetBranch: settings.targetBranch || null,
     };
   }
 }
