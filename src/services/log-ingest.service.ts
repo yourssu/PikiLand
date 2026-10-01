@@ -72,6 +72,7 @@ export class LogIngestService {
 
       // Resolve real default branch for target repository
       const defaultBranch = await githubAuthService.getDefaultBranchForRepo(repoFullName);
+      const repoSettings = repoSettingsRepository.findById(repoFullName);
 
       // Trigger Self-Healing Pipeline asynchronously
       selfHealingService.runSelfHealing({
@@ -80,7 +81,7 @@ export class LogIngestService {
         eventType: "production_log",
         runId: hash,
         installationId: 0,
-        targetBranch: defaultBranch,
+        targetBranch: repoSettings?.targetBranch || defaultBranch,
         defaultBranch,
       });
 

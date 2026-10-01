@@ -185,6 +185,12 @@ async function handleWebhookPost(c: any) {
           console.log(`[Webhook Notice] Repo ${repoFullName} is INACTIVE. Skipping self-healing.`);
           return c.text("Accepted", 200);
         }
+        if (settings?.targetBranch && settings.targetBranch !== headBranch) {
+          console.log(
+            `[Webhook Notice] Repo ${repoFullName} is scoped to branch '${settings.targetBranch}'. Ignoring failure on '${headBranch}'.`
+          );
+          return c.text("Accepted", 200);
+        }
         console.log(`[Webhook Action] 🚀 Target Workflow Failure Detected! Run ID: ${runId}, Repo: ${repoFullName}, Head Branch: ${headBranch}`);
 
         const existingFp = logFingerprintRepository.findByHash(runId);
@@ -254,7 +260,7 @@ async function handleWebhookPost(c: any) {
           eventType: "issues",
           runId: issueNumber,
           installationId,
-          targetBranch: defaultBranch,
+          targetBranch: settings?.targetBranch || defaultBranch,
           defaultBranch,
         });
       }
