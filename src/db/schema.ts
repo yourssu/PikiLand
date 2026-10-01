@@ -15,6 +15,7 @@ export const repoSettingsTable = sqliteTable("repo_settings", {
   logReceiverToken: text("log_receiver_token"),
   ec2Ip: text("ec2_ip"),
   logPath: text("log_path"),
+  targetBranch: text("target_branch"),
 });
 
 export const systemSettingsTable = sqliteTable("system_settings", {

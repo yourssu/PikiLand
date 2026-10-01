@@ -17,6 +17,7 @@ export interface RepoSettings {
   logReceiverToken?: string | null;
   ec2Ip?: string | null;
   logPath?: string | null;
+  targetBranch?: string | null;
 }
 
 export interface RepoSettingsDto {
@@ -36,6 +37,7 @@ export interface RepoSettingsDto {
   logIngestActive?: boolean;
   ec2Ip?: string | null;
   logPath?: string | null;
+  targetBranch?: string | null;
 }
 
 export interface SystemSettings {

@@ -23,6 +23,7 @@ export class RepoSettingsRepository {
       logReceiverToken: r.logReceiverToken,
       ec2Ip: r.ec2Ip,
       logPath: r.logPath,
+      targetBranch: r.targetBranch,
     };
   }
 
@@ -43,6 +44,7 @@ export class RepoSettingsRepository {
       logReceiverToken: r.logReceiverToken,
       ec2Ip: r.ec2Ip,
       logPath: r.logPath,
+      targetBranch: r.targetBranch,
     }));
   }
 
@@ -64,6 +66,7 @@ export class RepoSettingsRepository {
           logReceiverToken: settings.logReceiverToken,
           ec2Ip: settings.ec2Ip,
           logPath: settings.logPath,
+          targetBranch: settings.targetBranch,
         })
         .where(eq(repoSettingsTable.repositoryFullName, settings.repositoryFullName))
         .run();
@@ -84,6 +87,7 @@ export class RepoSettingsRepository {
           logReceiverToken: settings.logReceiverToken,
           ec2Ip: settings.ec2Ip,
           logPath: settings.logPath,
+          targetBranch: settings.targetBranch,
         })
         .run();
     }

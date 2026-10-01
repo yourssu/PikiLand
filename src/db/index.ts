@@ -32,7 +32,8 @@ sqlite.exec(`
     log_ingest_active INTEGER DEFAULT 0,
     log_receiver_token TEXT,
     ec2_ip TEXT,
-    log_path TEXT
+    log_path TEXT,
+    target_branch TEXT
   );
 
   CREATE TABLE IF NOT EXISTS system_settings (
@@ -60,6 +61,12 @@ sqlite.exec(`
     last_seen_at TEXT NOT NULL
   );
 `);
+
+try {
+  sqlite.exec("ALTER TABLE repo_settings ADD COLUMN target_branch TEXT;");
+} catch (e) {
+  // column already exists
+}
 
 export const db = drizzle(sqlite, { schema });
 export { sqlite };
