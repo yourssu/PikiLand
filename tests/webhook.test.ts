@@ -2,6 +2,8 @@ import { describe, expect, it, beforeEach } from "bun:test";
 import { app } from "../src/index";
 import { createHmac } from "crypto";
 import { systemSettingsRepository } from "../src/db/repositories/system-settings.repository";
+import { repoSettingsRepository } from "../src/db/repositories/repo-settings.repository";
+import { logFingerprintRepository } from "../src/db/repositories/log-fingerprint.repository";
 
 describe("Webhook Routes", () => {
   const secret = "test-webhook-secret";
@@ -131,5 +133,129 @@ describe("Webhook Routes", () => {
     const res = await app.request(req);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("Accepted");
+  });
+
+  it("should skip self-healing when workflow fails on a branch other than the configured target branch", async () => {
+    const repoName = "yourssu/branch-scope-repo";
+    const runId = "777001";
+    repoSettingsRepository.save({
+      repositoryFullName: repoName,
+      active: true,
+      targetBranch: "main",
+      harnessStatus: "NONE",
+      harnessSource: "NONE",
+      ralphMaxRetries: 3,
+    });
+
+    const payload = JSON.stringify({
+      action: "completed",
+      workflow_run: {
+        id: parseInt(runId, 10),
+        conclusion: "failure",
+        path: ".github/workflows/ci.yml",
+        name: "Backend CI",
+        head_branch: "feature-x",
+      },
+      repository: { full_name: repoName, default_branch: "main" },
+    });
+    const signature = "sha256=" + createHmac("sha256", secret).update(Buffer.from(payload, "utf8")).digest("hex");
+
+    const res = await app.request(
+      new Request("http://localhost:8080/api/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "workflow_run",
+          "X-Hub-Signature-256": signature,
+        },
+        body: payload,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(logFingerprintRepository.findByHash(runId)).toBeNull();
+  });
+
+  it("should trigger self-healing when workflow fails on the configured target branch", async () => {
+    const repoName = "yourssu/branch-scope-repo";
+    const runId = "777002";
+    repoSettingsRepository.save({
+      repositoryFullName: repoName,
+      active: true,
+      targetBranch: "main",
+      harnessStatus: "NONE",
+      harnessSource: "NONE",
+      ralphMaxRetries: 3,
+    });
+
+    const payload = JSON.stringify({
+      action: "completed",
+      workflow_run: {
+        id: parseInt(runId, 10),
+        conclusion: "failure",
+        path: ".github/workflows/ci.yml",
+        name: "Backend CI",
+        head_branch: "main",
+      },
+      repository: { full_name: repoName, default_branch: "main" },
+    });
+    const signature = "sha256=" + createHmac("sha256", secret).update(Buffer.from(payload, "utf8")).digest("hex");
+
+    const res = await app.request(
+      new Request("http://localhost:8080/api/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "workflow_run",
+          "X-Hub-Signature-256": signature,
+        },
+        body: payload,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const fp = logFingerprintRepository.findByHash(runId);
+    expect(fp).not.toBeNull();
+    expect(fp?.state).toBe("IN_PROGRESS");
+  });
+
+  it("should trigger self-healing on any branch when no target branch is configured", async () => {
+    const repoName = "yourssu/no-branch-scope-repo";
+    const runId = "777003";
+    repoSettingsRepository.save({
+      repositoryFullName: repoName,
+      active: true,
+      harnessStatus: "NONE",
+      harnessSource: "NONE",
+      ralphMaxRetries: 3,
+    });
+
+    const payload = JSON.stringify({
+      action: "completed",
+      workflow_run: {
+        id: parseInt(runId, 10),
+        conclusion: "failure",
+        path: ".github/workflows/ci.yml",
+        name: "Backend CI",
+        head_branch: "develop",
+      },
+      repository: { full_name: repoName, default_branch: "main" },
+    });
+    const signature = "sha256=" + createHmac("sha256", secret).update(Buffer.from(payload, "utf8")).digest("hex");
+
+    const res = await app.request(
+      new Request("http://localhost:8080/api/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "workflow_run",
+          "X-Hub-Signature-256": signature,
+        },
+        body: payload,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(logFingerprintRepository.findByHash(runId)).not.toBeNull();
   });
 });
