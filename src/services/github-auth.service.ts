@@ -86,6 +86,22 @@ export class GithubAuthService {
     }
   }
 
+  public async listBranchesForRepo(repoFullName: string): Promise<string[]> {
+    if (!repoFullName || !repoFullName.includes("/")) return [];
+    const app = this.getAppInstance();
+    if (!app) return [];
+    try {
+      const [owner, repo] = repoFullName.split("/");
+      const { data: installation } = await (app.octokit as any).request("GET /repos/{owner}/{repo}/installation", { owner, repo });
+      const octokit = (await app.getInstallationOctokit(installation.id)) as any;
+      const { data } = await octokit.rest.repos.listBranches({ owner, repo, per_page: 100 });
+      return data.map((b: { name: string }) => b.name);
+    } catch (e: any) {
+      console.error(`[GitHubAuth] Failed to list branches for ${repoFullName}:`, e.message);
+      return [];
+    }
+  }
+
   public async getUserInstalledRepositories(userAccessToken: string): Promise<string[]> {
     if (!userAccessToken) return [];
     const octokit = new Octokit({ auth: userAccessToken });

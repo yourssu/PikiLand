@@ -94,6 +94,20 @@ settingsRoutes.post("/harness/infer", async (c) => {
   return c.json(updated);
 });
 
+// List Branches for Target Branch Dropdown
+settingsRoutes.get("/branches", async (c) => {
+  const repo = c.req.query("repo");
+  const user = getSessionUser(c);
+  if (!repo) {
+    return c.json({ branches: [] });
+  }
+  if (!(await isAuthorizedForRepo(repo, user))) {
+    return c.text("Forbidden", 403);
+  }
+  const branches = await githubAuthService.listBranchesForRepo(repo);
+  return c.json({ branches });
+});
+
 // Infer Log Path
 settingsRoutes.get("/infer-log-path", async (c) => {
   const repo = c.req.query("repo");
