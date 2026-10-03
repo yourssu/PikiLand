@@ -1,8 +1,8 @@
+import { sqlite } from "../db";
+import "./production-signal.service";
+import { incidentAuthorized } from "./incident-auth.service";
 import { createHash } from "crypto";
 import { logFingerprintRepository } from "../db/repositories/log-fingerprint.repository";
-import { repoSettingsRepository } from "../db/repositories/repo-settings.repository";
-import { selfHealingService } from "./self-healing.service";
-import { githubAuthService } from "./github-auth.service";
 import { llmLogClassifierService } from "./llm-log-classifier.service";
 import { LogFingerprint } from "../domain/models";
 
@@ -24,7 +24,10 @@ export class LogIngestService {
     let processedCount = 0;
 
     for (const entry of payloads) {
-      const rawLog = String(entry.log || entry.message || entry.msg || entry["@message"] || entry.data || "");
+      const rawLog = String(entry.log || entry.message || entry.msg || entry["@message"] || entry.data || "").slice(0,16384)
+        .replace(/Bearer\s+[^\s"']+/gi,"Bearer [REDACTED]")
+        .replace(/(password|token|secret|authorization|cookie)\s*[:=]\s*[^\s,;]+/gi,"$1=[REDACTED]")
+        .replace(/(https?:\/\/[^?\s]+)\?[^\s]+/g,"$1?[REDACTED]");
       if (!rawLog || rawLog.trim().length === 0) {
         continue;
       }
@@ -43,10 +46,10 @@ export class LogIngestService {
 
       // Fast Stage: Pre-check if error fingerprint is already active & IN_PROGRESS in DB
       const normalizedSignature = this.normalizeLogSignature(rawLog);
-      const hash = this.computeSha256(normalizedSignature);
+      const hash = this.computeSha256(`${repoFullName}:${normalizedSignature}`);
 
       const existing = logFingerprintRepository.findByHash(hash);
-      if (existing && existing.state === "IN_PROGRESS") {
+      if (existing) {
         existing.occurrenceCount += 1;
         existing.lastSeenAt = new Date();
         logFingerprintRepository.save(existing);
@@ -66,23 +69,11 @@ export class LogIngestService {
         firstSeenAt: new Date(),
         lastSeenAt: new Date(),
       };
-      logFingerprintRepository.save(fingerprint);
-
-      console.log(`[LogIngest] 🚀 Genuine Error Detected! Triggering Self-Healing for Repo: '${repoFullName}', Hash: ${hash}`);
-
-      // Resolve real default branch for target repository
-      const defaultBranch = await githubAuthService.getDefaultBranchForRepo(repoFullName);
-
-      // Trigger Self-Healing Pipeline asynchronously
-      selfHealingService.runSelfHealing({
-        repoName: repoFullName,
-        rawLogOrIssueBody: rawLog,
-        eventType: "production_log",
-        runId: hash,
-        installationId: 0,
-        targetBranch: defaultBranch,
-        defaultBranch,
-      });
+      sqlite.transaction(() => {
+        logFingerprintRepository.save(fingerprint);
+        sqlite.query("INSERT OR IGNORE INTO production_jobs (incident_id,repo,created_at,updated_at) VALUES (?,?,?,?)")
+          .run(hash,repoFullName,Date.now(),Date.now());
+      })();
 
       processedCount++;
     }
@@ -119,12 +110,12 @@ export class LogIngestService {
     return logFingerprintRepository.findAllByRepository(repoFullName);
   }
 
-  public getIncidentDetailMapByHash(hash: string, token: string): Record<string, any> | null {
+  public async getIncidentDetailMapByHash(hash: string, token: string): Promise<Record<string, any> | null> {
     if (!hash) return null;
     const fp = logFingerprintRepository.findByHash(hash);
     if (!fp) return null;
 
-    if (!this.validateIncidentAccess(fp.repositoryFullName, token)) {
+    if (!await this.validateIncidentAccess(fp.repositoryFullName, token)) {
       return { error: "forbidden" };
     }
 
@@ -139,6 +130,7 @@ export class LogIngestService {
     };
 
     return {
+      analysis: sqlite.query("SELECT state,outcome,error,updated_at FROM production_jobs WHERE incident_id=?").get(fp.hash),
       hash: fp.hash,
       repositoryFullName: fp.repositoryFullName,
       normalizedSignature: fp.normalizedSignature,
@@ -151,25 +143,8 @@ export class LogIngestService {
     };
   }
 
-  public validateIncidentAccess(repoFullName: string, token: string): boolean {
-    if (!token || token.trim().length === 0) return false;
-
-    // 1. Check custom repo-specific log receiver token
-    const settings = repoSettingsRepository.findById(repoFullName);
-    if (settings && settings.logReceiverToken && token === settings.logReceiverToken) {
-      return true;
-    }
-
-    // 2. Allow valid GitHub Installation/PAT tokens from GitHub Actions runner
-    if (
-      token.startsWith("ghs_") ||
-      token.startsWith("ghp_") ||
-      token.startsWith("github_pat_")
-    ) {
-      return true;
-    }
-
-    return false;
+  public async validateIncidentAccess(repoFullName: string, token: string): Promise<boolean> {
+    return incidentAuthorized(repoFullName, token);
   }
 
   public computeSha256(text: string): string {

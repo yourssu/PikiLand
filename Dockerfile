@@ -17,6 +17,7 @@ RUN bun install --production
 # Copy source code and static assets
 COPY src/ ./src/
 COPY public/ ./public/
+COPY observer/observer.py ./observer/observer.py
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

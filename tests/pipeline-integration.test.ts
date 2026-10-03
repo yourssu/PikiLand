@@ -32,7 +32,7 @@ describe("E2E Pipeline Integration Tests", () => {
     });
   });
 
-  it("should transition fingerprint lifecycle: IN_PROGRESS -> PR_CREATED -> RESOLVED", async () => {
+  it("should transition fingerprint lifecycle: IN_PROGRESS -> PR_CREATED -> AWAITING_DEPLOYMENT", async () => {
     const testHash = "a1b2c3d4e5f67890123456789012345678901234567890123456789012345678";
     
     // 1. Initial fingerprint created
@@ -102,10 +102,10 @@ describe("E2E Pipeline Integration Tests", () => {
     expect(prMergedRes.status).toBe(200);
 
     const fpAfterMerge = logFingerprintRepository.findByHash(testHash);
-    expect(fpAfterMerge?.state).toBe("RESOLVED");
+    expect(fpAfterMerge?.state).toBe("AWAITING_DEPLOYMENT");
   });
 
-  it("should transition fingerprint state to FAILED when pikiland self workflow fails", async () => {
+  it("should not mutate an unrelated incident on workflow completion", async () => {
     const testHash = "deadbeef12345678901234567890123456789012345678901234567890123456";
 
     logFingerprintRepository.save({
@@ -143,10 +143,10 @@ describe("E2E Pipeline Integration Tests", () => {
     expect(res.status).toBe(200);
 
     const fp = logFingerprintRepository.findByHash(testHash);
-    expect(fp?.state).toBe("FAILED");
+    expect(fp?.state).toBe("IN_PROGRESS");
   });
 
-  it("should create LogFingerprint with IN_PROGRESS state when target workflow_run fails", async () => {
+  it("should ignore workflow failures as incident sources", async () => {
     const runId = "555666";
     const wfFailPayload = JSON.stringify({
       action: "completed",
@@ -173,8 +173,6 @@ describe("E2E Pipeline Integration Tests", () => {
     expect(res.status).toBe(200);
 
     const createdFp = logFingerprintRepository.findByHash(runId);
-    expect(createdFp).not.toBeNull();
-    expect(createdFp?.state).toBe("IN_PROGRESS");
-    expect(createdFp?.repositoryFullName).toBe(repoName);
+    expect(createdFp).toBeNull();
   });
 });

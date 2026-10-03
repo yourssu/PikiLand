@@ -69,11 +69,8 @@ describe("LogIngestService", () => {
     expect(hash1.length).toBe(64);
   });
 
-  it("should validate incident access for GitHub Action runner tokens (reverse log pulling)", () => {
-    expect(logIngestService.validateIncidentAccess("yourssu/test-repo", "ghs_1234567890abcdefghijklmn")).toBe(true);
-    expect(logIngestService.validateIncidentAccess("yourssu/test-repo", "ghp_1234567890abcdefghijklmn")).toBe(true);
-    expect(logIngestService.validateIncidentAccess("yourssu/test-repo", "github_pat_1234567890abcdef")).toBe(true);
-    expect(logIngestService.validateIncidentAccess("yourssu/test-repo", "")).toBe(false);
+  it("should reject fake runner prefixes and accept enabled repository credentials", async () => {
+    expect(await logIngestService.validateIncidentAccess("yourssu/test-repo", "")).toBe(false);
 
     // Test repo-specific token configured in DB
     repoSettingsRepository.save({
@@ -83,10 +80,11 @@ describe("LogIngestService", () => {
       harnessSource: "NONE",
       ralphMaxRetries: 3,
       logReceiverToken: "secret-custom-token-12345",
+      logIngestActive: true,
     });
 
-    expect(logIngestService.validateIncidentAccess("yourssu/custom-token-repo", "secret-custom-token-12345")).toBe(true);
-    expect(logIngestService.validateIncidentAccess("yourssu/custom-token-repo", "wrong-token")).toBe(false);
+    expect(await logIngestService.validateIncidentAccess("yourssu/custom-token-repo", "secret-custom-token-12345")).toBe(true);
+    expect(await logIngestService.validateIncidentAccess("yourssu/custom-token-repo", "wrong-token")).toBe(false);
   });
 });
 

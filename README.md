@@ -1,8 +1,10 @@
 # PikiLand 🏰
 
-> **AI-Powered Self-Healing Autopilot for your GitHub Workflows & Issues**
+> **Production Log Observation & Verified Self-Healing**
 
-PikiLand는 GitHub CI/CD 워크플로 실패 및 이슈를 수신하고, AI 코드 분석과 하네스(Harness) 기반 자가 보완 루프(Ralph Loop)를 거쳐 **실제 검증된 단 하나의 패치 PR**과 Slack 알림을 자동 생성하는 시스템입니다.
+PikiLand는 production 로그에서 명시적 오류와 관측 가능한 행동 이상을 감지하고, 재현·회귀 검증을 통과한 패치만 PR로 제안합니다. workflow 실패와 Issue 생성은 감지 입력에서 제외합니다.
+
+현재 설치·감지·실행 계약은 [Production Pipeline](docs/PRODUCTION_PIPELINE.md)을 참고하세요. 아래 이전 Fluent Bit 및 다중 입력 설명보다 이 문서가 우선합니다.
 
 ---
 
@@ -12,7 +14,7 @@ PikiLand는 GitHub CI/CD 워크플로 실패 및 이슈를 수신하고, AI 코�
   - **Web App (Coordinator)**: TypeScript + Bun (Hono) 기반의 고성능 초경량 오케스트레이터. 웹훅 수신, OAuth 인증, 대시보드, 어드민 및 저장소 워크플로 자동 삽입을 관리합니다.
   - **CLI (Execution Engine)**: GitHub Actions 환경에서 단발성으로 동작하는 실행 엔진 (`yourssu/PikiLand-Engine`). 분석, Ralph Loop, 패치 적용, PR 생성을 담당합니다.
 - **단방향 프로덕션 로그 수집 & 1회성 SSH 프로비저닝 (Zero Trust)**:
-  - 대시보드 UI에서 1회용 SSH Private Key(`.pem`)를 통해 원격 EC2에 Fluent Bit 수집기를 자동 설치하고 `grep` 정규식 필터를 주입하며 접속 후 백엔드 SSH 키 메모리 및 임시 파일은 원천 파기됩니다.
+  - 호스트 키를 검증한 SSH 연결로 자원 상한을 둔 전용 수집기를 설치합니다. 기존 access 로그를 읽고 집계된 후보만 전송하며 nginx 설정과 로그 권한은 변경하지 않습니다.
 - **LLM 기반 로그 경로 자동 추론**:
   - `application.yml`, `logback.xml`, `docker-compose.yml` 등 프로젝트 설정 파일을 분석하여 프로덕션 로그 경로를 자동 추론합니다.
 - **GitHub App 설치 완료 전용 안내 페이지 (`/setup`) & Direct API 로딩 최적화**:
@@ -31,7 +33,7 @@ PikiLand는 GitHub CI/CD 워크플로 실패 및 이슈를 수신하고, AI 코�
 ## 🏗️ 전체 아키텍처
 
 ```text
-[ GitHub Webhook / Issues ]
+[ Production Logs / Local Observer ]
            │
            ▼
 ┌─────────────────────────────────────────┐

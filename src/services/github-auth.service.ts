@@ -243,13 +243,13 @@ on:
   workflow_dispatch:
     inputs:
       event_type:
-        description: 'Original event type'
+        description: 'production_log only'
         required: true
       log_content:
-        description: 'Truncated error log or issue body (Optional - CLI downloads via run_id if omitted)'
+        description: 'Reserved; evidence is fetched from the coordinator'
         required: false
       run_id:
-        description: 'Original run ID or issue number'
+        description: 'Production incident SHA-256 identifier'
         required: true
       target_branch:
         description: 'Branch to checkout and patch'
@@ -273,9 +273,14 @@ on:
         description: 'PikiLand Web Server URL (HTTPS Port 443)'
         required: false
 
+concurrency:
+  group: pikiland-\${{ github.event.inputs.run_id }}
+  cancel-in-progress: false
+
 jobs:
   pikiland-patch:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
       pull-requests: write
@@ -287,6 +292,7 @@ jobs:
         with:
           ref: \${{ github.event.inputs.target_branch }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Checkout PikiLand Engine
         uses: actions/checkout@v4
@@ -304,7 +310,7 @@ jobs:
       - name: Run PikiLand CLI (TypeScript + Bun Engine)
         env:
           PIKILAND_CLI: "true"
-          PIKILAND_EVENT_TYPE: "\${{ github.event.inputs.event_type }}"
+          PIKILAND_EVENT_TYPE: "production_log"
           PIKILAND_LOG_CONTENT: "\${{ github.event.inputs.log_content }}"
           PIKILAND_RUN_ID: "\${{ github.event.inputs.run_id }}"
           PIKILAND_FINGERPRINT_HASH: "\${{ github.event.inputs.run_id }}"

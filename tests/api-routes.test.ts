@@ -99,6 +99,7 @@ describe("Settings & API Routes", () => {
       harnessSource: "NONE",
       ralphMaxRetries: 3,
       logReceiverToken: "valid-repo-token-999",
+      logIngestActive: true,
     });
 
     // 3. Unauthorized token
@@ -140,7 +141,7 @@ describe("Settings & API Routes", () => {
 
     const detailReq = new Request(`http://localhost:8080/api/settings/incidents/detail?hash=${incidentHash}`, {
       headers: {
-        Authorization: "Bearer ghs_runner_token_for_github_actions_123456",
+        Authorization: "Bearer valid-repo-token-999",
       },
     });
     const detailRes = await app.request(detailReq);

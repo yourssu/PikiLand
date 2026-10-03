@@ -1,39 +1,17 @@
-import { describe, expect, it } from "bun:test";
-import { ec2ProvisionService } from "../src/services/ec2-provision.service";
-
-describe("Ec2ProvisionService", () => {
-  it("should generate valid Fluent Bit configuration with error regex grep filter", () => {
-    const conf = ec2ProvisionService.generateFluentBitConf(
-      "/var/log/myapp/*.log",
-      "pikiland.yourssu.com",
-      443,
-      "test-agent-token",
-      "yourssu/pikiland"
-    );
-
-    expect(conf).toContain("Name            tail");
-    expect(conf).toContain("Path            /var/log/myapp/*.log");
-    expect(conf).toContain("Name            grep");
-    expect(conf).toContain("Regex           log (error|ERROR|Error|exception|Exception|EXCEPTION|fatal|FATAL|critical|CRITICAL|panic|PANIC|unhandled|Unhandled|UNHANDLED|fail|FAIL|severe|SEVERE|5[0-9][0-9]|traceback|Traceback|NullPointer)");
-    expect(conf).toContain("Name            http");
-    expect(conf).toContain("Host            pikiland.yourssu.com");
-    expect(conf).toContain("Port            443");
-    expect(conf).toContain("URI             /api/logs/ingest");
-    expect(conf).toContain("Header          Authorization Bearer test-agent-token");
-    expect(conf).toContain("Header          X-Pikiland-Repo yourssu/pikiland");
-    expect(conf).toContain("tls             On");
+import {describe,expect,it} from "bun:test";
+import {observerArtifacts,ec2ProvisionService} from "../src/services/ec2-provision.service";
+const config={repositoryFullName:"owner/repo",sshUser:"observer",logPath:"/var/log/nginx/access.log",endpoint:"https://example.com/api/production/signals",token:"test-token-12345678"};
+describe("Read-only observer provisioning",()=>{
+  it("generates isolated resource-limited units without changing nginx",()=>{
+    const a=observerArtifacts(config);
+    expect(a.unit).toContain("User=observer");expect(a.unit).toContain("MemoryMax=64M");expect(a.unit).toContain("CPUQuota=5%");
+    expect(a.unit).toContain("ProtectSystem=strict");expect(a.unit).not.toContain("nginx -s");
+    expect(JSON.parse(a.config).logPath).toBe(config.logPath);
   });
-
-  it("should disable TLS when running on non-443 port", () => {
-    const conf = ec2ProvisionService.generateFluentBitConf(
-      "/var/log/app.log",
-      "127.0.0.1",
-      8080,
-      "token123",
-      "owner/repo"
-    );
-
-    expect(conf).toContain("tls             Off");
-    expect(conf).toContain("Port            8080");
+  it("rejects insecure endpoints, root, wildcard paths and configuration injection",()=>{
+    for(const change of [{sshUser:"root"},{sshUser:"user\nExecStart=bad"},{endpoint:"http://example.com/api/production/signals"},{logPath:"/var/log/*.log"},{logPath:"/var/log/../../etc/passwd"}]) expect(()=>observerArtifacts({...config,...change})).toThrow();
+  });
+  it("refuses SSH installation without a verified host identity before connecting",async()=>{
+    await expect(ec2ProvisionService.provisionInstance({repositoryFullName:"owner/repo",ec2Ip:"127.0.0.1",sshUser:"observer",pemKeyContent:"fake"})).rejects.toThrow("fingerprint");
   });
 });

@@ -1,5 +1,7 @@
 # Architecture & Data Pipeline
 
+> 2026-10-02: production 로그 전용 파이프라인으로 전환되었습니다. 현재 설치 및 검증 계약은 [PRODUCTION_PIPELINE.md](PRODUCTION_PIPELINE.md)를 우선합니다. 아래 CI/Issue 입력 및 Fluent Bit 설치 설명은 이전 방식입니다.
+
 > 상태: 목표 구조 초안 · 마지막 수정: 2026-07-15
 >
 > 이 문서는 검증된 PR을 만드는 목표 구조를 설명합니다. 제품 범위와 우선순위는 [Product Design](./DESIGN.md)을 우선합니다.

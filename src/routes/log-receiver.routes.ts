@@ -1,8 +1,11 @@
+import { bodyLimit } from "hono/body-limit";
 import { Hono } from "hono";
 import { logIngestService } from "../services/log-ingest.service";
 import { repoSettingsRepository } from "../db/repositories/repo-settings.repository";
 
 export const logReceiverRoutes = new Hono();
+
+logReceiverRoutes.use("*", bodyLimit({maxSize:65536}));
 
 logReceiverRoutes.post("/ingest", async (c) => {
   const authHeader = c.req.header("Authorization");
@@ -24,7 +27,7 @@ logReceiverRoutes.post("/ingest", async (c) => {
 
   const token = authHeader.substring(7).trim();
   const settings = repoSettingsRepository.findById(repoFullName);
-  if (!settings || !settings.logReceiverToken || token !== settings.logReceiverToken) {
+  if (!settings?.active || !settings.logIngestActive || !settings.logReceiverToken || token !== settings.logReceiverToken) {
     console.warn(`[LogReceiver] Token mismatch or log ingest not configured for repo '${repoFullName}'.`);
     return c.json({ status: "error", message: "Unauthorized repository token" }, 401);
   }

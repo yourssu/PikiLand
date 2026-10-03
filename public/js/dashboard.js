@@ -464,7 +464,7 @@ function showToast(message, isError = false) {
     }, 3500);
 }
 
-// EC2 Fluent Bit Provisioning Modal Handlers
+// Read-only Observer Provisioning Modal Handlers
 async function openProvisionModal(repoName, btnEl = null) {
     const modalRepoName = document.getElementById('modal-repo-name');
     const modalRepoDisplay = document.getElementById('modal-repo-display');
@@ -488,26 +488,13 @@ async function openProvisionModal(repoName, btnEl = null) {
         if (existingLogPath) {
             logPathInput.value = existingLogPath;
         } else {
-            logPathInput.value = '/var/log/production/*.log';
+            logPathInput.value = '/var/log/nginx/access.log';
         }
     }
 
     if (modal) modal.style.display = 'flex';
     
-    // If no custom log path was set before, dynamically infer from repo files
-    if (!existingLogPath) {
-        try {
-            const res = await fetch('/api/settings/infer-log-path?repo=' + encodeURIComponent(repoName));
-            if (res.ok) {
-                const data = await res.json();
-                if (data.inferredLogPath && logPathInput) {
-                    logPathInput.value = data.inferredLogPath;
-                }
-            }
-        } catch (e) {
-            console.warn('Failed to infer log path via API, using default', e);
-        }
-    }
+
 }
 
 function updateFileLabel(input) {
@@ -582,6 +569,12 @@ async function openIncidentModal(repoName) {
             } else if (item.state === 'IN_PROGRESS') {
                 stateBadgeClass = 'badge-pending';
                 stateLabel = '자가 치유 진행 중 (IN_PROGRESS)';
+            } else if (item.state === 'AWAITING_DEPLOYMENT') {
+                stateLabel = '병합됨 · 배포 및 회복 확인 대기';
+            } else if (item.state === 'NEEDS_EVIDENCE') {
+                stateLabel = '증거 또는 재현 조건 확인 필요';
+            } else if (item.state === 'NO_PR') {
+                stateLabel = '분석 완료 · 코드 수정 불필요';
             } else if (item.state === 'FAILED') {
                 stateBadgeClass = 'badge-none';
                 stateLabel = '패치 실패 (FAILED)';
@@ -663,6 +656,7 @@ async function submitEc2Provision() {
     formData.append('sshUser', user);
     formData.append('logPath', logPath);
     formData.append('pemKey', pemFile);
+    formData.append('hostFingerprint', document.getElementById('modal-host-fingerprint').value.trim());
 
     const btn = document.querySelector('.btn-submit-provision');
     if (btn) {
@@ -677,7 +671,7 @@ async function submitEc2Provision() {
         });
         const data = await res.json();
         if (res.ok) {
-            showToast("EC2 Fluent Bit 프로비저닝이 완료되었습니다.");
+            showToast("운영 로그 수집기 설치가 완료되었습니다.");
             closeProvisionModal();
             const ec2Badge = document.querySelector('.status-badge-ec2[data-repo="' + repo + '"]');
             if (ec2Badge) ec2Badge.style.display = 'inline-flex';

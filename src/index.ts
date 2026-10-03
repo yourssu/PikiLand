@@ -1,3 +1,5 @@
+import { productionRoutes } from "./routes/production.routes";
+import { productionSignalService } from "./services/production-signal.service";
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
@@ -20,6 +22,12 @@ app.route("/", authRoutes);
 app.route("/", viewRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/logs", logReceiverRoutes);
+
+app.route("/api/production", productionRoutes);
+if (import.meta.main) {
+  const timer = setInterval(() => { void productionSignalService.drain().catch(() => console.error("Production dispatcher failed")); }, 5000);
+  timer.unref();
+}
 
 const port = parseInt(process.env.PORT || "8080", 10);
 console.log(`🏰 PikiLand Web Coordinator running on port ${port} (TypeScript + Bun Engine)`);
