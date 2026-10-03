@@ -27,6 +27,9 @@ jobs:
       - name: Run unit & integration tests
         run: bun run test
 
+      - name: Verify bounded log observer
+        run: python3 -m unittest discover -s observer -v
+
       - name: Verify Docker Build
         run: docker build -t pikiland-server:test .
 

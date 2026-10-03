@@ -36,6 +36,7 @@ export class SelfHealingService {
     targetBranch: string;
     defaultBranch: string;
   }): Promise<void> {
+    if (params.eventType !== "production_log") throw new Error("Only production_log is supported");
     const { repoName, rawLogOrIssueBody, eventType, runId, installationId, targetBranch, defaultBranch } = params;
 
     console.log(`[SelfHealing] Starting trigger for ${repoName} (event: ${eventType}, runId: ${runId})`);
@@ -64,7 +65,7 @@ export class SelfHealingService {
 
       if (!token) {
         console.error(`[SelfHealing] Could not acquire token for repo: ${repoName}`);
-        return;
+        throw new Error("Installation token unavailable");
       }
 
       // Ensure workflow file is installed on default branch
@@ -100,7 +101,8 @@ export class SelfHealingService {
         token,
       });
     } catch (e: any) {
-      console.error(`[SelfHealing] Fatal error triggering workflow dispatch for ${repoName}:`, e.message);
+      console.error(`[SelfHealing] Workflow dispatch failed for ${repoName}`);
+      throw e;
     }
   }
 }

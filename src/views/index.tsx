@@ -7,7 +7,7 @@ export const IndexPage: FC = () => {
       <div class="glass-card landing-card">
         <div class="castle-icon">🏰</div>
         <h1 class="main-title">PikiLand</h1>
-        <p class="tagline">GitHub 워크플로 실패 및 이슈를 자가 보완하는 AI 오토파일럿</p>
+        <p class="tagline">운영 로그의 이상 징후를 분석하고 검증된 수정을 제안합니다</p>
 
         <div class="features-list">
           <div class="feature-item">

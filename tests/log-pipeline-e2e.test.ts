@@ -102,7 +102,7 @@ describe("Log Pipeline E2E Tests (Ingest & Reverse Pull)", () => {
 
     // 3. Valid Runner GHS Token -> 200 OK
     const resRunnerToken = await app.request(new Request(`http://localhost:8080/api/settings/incidents/detail?hash=${hash}`, {
-      headers: { Authorization: "Bearer ghs_runner_temp_token_for_actions_001" },
+      headers: { Authorization: `Bearer ${repoToken}` },
     }));
     expect(resRunnerToken.status).toBe(200);
     const detail: any = await resRunnerToken.json();
@@ -112,7 +112,7 @@ describe("Log Pipeline E2E Tests (Ingest & Reverse Pull)", () => {
 
     // 4. Non-existent hash -> 404
     const resNotFound = await app.request(new Request(`http://localhost:8080/api/settings/incidents/detail?hash=nonexistenthash123`, {
-      headers: { Authorization: "Bearer ghs_runner_temp_token_for_actions_001" },
+      headers: { Authorization: `Bearer ${repoToken}` },
     }));
     expect(resNotFound.status).toBe(404);
   });

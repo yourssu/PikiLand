@@ -1,5 +1,7 @@
 # PikiLand Deployment & Integration Guide
 
+> 2026-10-02: production 로그 전용 파이프라인으로 전환되었습니다. 현재 설치 및 검증 계약은 [PRODUCTION_PIPELINE.md](PRODUCTION_PIPELINE.md)를 우선합니다. 아래 CI/Issue 입력 및 Fluent Bit 설치 설명은 이전 방식입니다.
+
 > 마지막 수정: 2026-08-31
 > 이 문서는 PikiLand 서버를 처음부터 배포하고, GitHub App을 등록하여 대상 저장소에 연동하는 전 과정을 설명합니다.
 

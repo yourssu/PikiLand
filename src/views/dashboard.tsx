@@ -197,7 +197,7 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
                         <div>
                           <div class="repo-active-label">저장소 자동화 활성화</div>
                           <div class="repo-active-hint">
-                            켜두면 워크플로 실패나 이슈 발생 시 PikiLand가 자동으로 분석·패치를 시도합니다.
+                            켜두면 운영 로그의 이상 징후를 분석하고 재현·검증된 수정만 제안합니다.
                           </div>
                         </div>
                         <label class="switch">
@@ -402,10 +402,10 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
       >
         <div class="modal-card">
           <h3 style="margin-top: 0; color: var(--text-light); font-size: 1.2rem; font-weight: 700;">
-            EC2 Fluent Bit 프로비저닝
+            운영 로그 수집기 설치
           </h3>
           <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 16px;">
-            프로덕션 EC2 서버에 Fluent Bit 수집기를 자동 설치하고 연동합니다. 접속 후 SSH 키는 세션 종료 시 즉시 파기됩니다.
+            기존 nginx access 로그를 읽는 전용 수집기를 설치합니다. Python 3.9 이상과 로그 읽기 권한이 필요합니다. nginx 설정·로그 권한은 변경하지 않습니다.
           </p>
           <input type="hidden" id="modal-repo-name" />
           <div class="form-group" style="margin-bottom: 12px;">
@@ -449,11 +449,15 @@ export const DashboardPage: FC<DashboardPageProps> = ({ username, isAdmin, repos
             <input
               type="text"
               id="modal-log-path"
-              value="/var/log/production/*.log"
+              value="/var/log/nginx/access.log"
               style="width: 100%;"
             />
           </div>
 
+          <div class="form-group">
+            <label for="modal-host-fingerprint">SSH 호스트 SHA-256 지문 (64자리 hex)</label>
+            <input id="modal-host-fingerprint" type="text" maxlength={64} placeholder="서버 관리자에게 확인한 호스트 키 지문" />
+          </div>
           <div class="form-group" style="margin-bottom: 16px;">
             <label style="display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 4px;">
               SSH 개인키 파일 (.pem / id_rsa / id_ed25519)

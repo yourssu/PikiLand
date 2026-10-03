@@ -1,9 +1,7 @@
 import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "crypto";
 import { systemSettingsRepository } from "../db/repositories/system-settings.repository";
-import { repoSettingsRepository } from "../db/repositories/repo-settings.repository";
 import { logFingerprintRepository } from "../db/repositories/log-fingerprint.repository";
-import { selfHealingService } from "../services/self-healing.service";
 import { isDebugMode } from "../config/debug";
 
 export const webhookRoutes = new Hono();
@@ -24,8 +22,8 @@ function verifySignature(payloadBuffer: Buffer, signatureHeader?: string | null)
 
   const secret = getEffectiveWebhookSecret();
   if (!secret) {
-    console.log("[Webhook Warning] Webhook Secret is empty. Accepting payload in permissive mode.");
-    return true;
+    console.warn("[Webhook] Webhook secret is missing; refusing unsigned lifecycle updates.");
+    return false;
   }
 
   if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
@@ -45,43 +43,6 @@ function verifySignature(payloadBuffer: Buffer, signatureHeader?: string | null)
   }
 }
 
-function isPikilandSelfWorkflow(workflowPath?: string, workflowName?: string): boolean {
-  if (workflowPath && (workflowPath.endsWith("pikiland.yml") || workflowPath.endsWith("pikiland.yaml"))) {
-    return true;
-  }
-  return Boolean(workflowName && workflowName.toLowerCase().includes("pikiland"));
-}
-
-function isPikilandSelfIssue(issueNode: any, issueBody?: string, senderLogin?: string): boolean {
-  if (
-    issueBody &&
-    (issueBody.includes("PikiLand AI Self-Healing Engine") ||
-      issueBody.includes("Authored by PikiLand") ||
-      issueBody.includes("Authored by PikiLand Engine") ||
-      issueBody.includes("PikiLand Incident Fingerprint:") ||
-      issueBody.includes("Created automatically by PikiLand"))
-  ) {
-    return true;
-  }
-  if (senderLogin && senderLogin.toLowerCase().includes("pikiland")) {
-    return true;
-  }
-  const issueTitle = String(issueNode?.title || "");
-  if (issueTitle.startsWith("[PikiLand]") || issueTitle.includes("PikiLand Incident")) {
-    return true;
-  }
-  const labels = issueNode?.labels || [];
-  if (Array.isArray(labels)) {
-    for (const label of labels) {
-      const name = typeof label === "string" ? label.toLowerCase() : String(label?.name || "").toLowerCase();
-      if (name === "pikiland-incident" || name.includes("pikiland")) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 function extractFingerprintHash(headRef?: string, prBody?: string): string | null {
   if (headRef && headRef.startsWith("pikiland/fix-")) {
     return headRef.substring("pikiland/fix-".length).trim();
@@ -95,10 +56,10 @@ function extractFingerprintHash(headRef?: string, prBody?: string): string | nul
   return null;
 }
 
-function updateFingerprintState(hash: string | null, repoFullName: string, newState: "PR_CREATED" | "RESOLVED" | "FAILED", prUrl?: string) {
+function updateFingerprintState(hash: string | null, repoFullName: string, newState: "PR_CREATED" | "AWAITING_DEPLOYMENT" | "FAILED", prUrl?: string) {
   if (hash) {
     const fp = logFingerprintRepository.findByHash(hash);
-    if (fp) {
+    if (fp && fp.repositoryFullName === repoFullName) {
       fp.state = newState;
       if (prUrl) fp.prUrl = prUrl;
       fp.lastSeenAt = new Date();
@@ -107,19 +68,7 @@ function updateFingerprintState(hash: string | null, repoFullName: string, newSt
     }
   }
 
-  // Fallback: If hash is null, update only the most recent active incident for this repo
-  const list = logFingerprintRepository.findAllByRepository(repoFullName);
-  const activeList = list
-    .filter((fp) => fp.state === "IN_PROGRESS" || fp.state === "PR_CREATED")
-    .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
 
-  if (activeList.length > 0) {
-    const latest = activeList[0];
-    latest.state = newState;
-    if (prUrl) latest.prUrl = prUrl;
-    latest.lastSeenAt = new Date();
-    logFingerprintRepository.save(latest);
-  }
 }
 
 async function handleWebhookPost(c: any) {
@@ -147,68 +96,10 @@ async function handleWebhookPost(c: any) {
 
   try {
     const payload = JSON.parse(rawBody);
-    const installationId = payload.installation?.id || 0;
     const repoFullName = payload.repository?.full_name || "";
-    const defaultBranch = payload.repository?.default_branch || "main";
 
-    console.log(`[Webhook Received] Event: '${event}' for repository: ${repoFullName}`);
-
-    const settings = repoFullName ? repoSettingsRepository.findById(repoFullName) : null;
-
-    if (event === "workflow_run") {
-      const action = payload.action;
-      const run = payload.workflow_run || {};
-      const conclusion = run.conclusion;
-      const runId = String(run.id || "");
-      const headBranch = run.head_branch || defaultBranch;
-      const workflowPath = run.path || "";
-      const workflowName = run.name || "";
-
-      console.log(`[Webhook Workflow] Run ID: ${runId}, Action: ${action}, Conclusion: ${conclusion}, Name: ${workflowName}`);
-
-      if (isPikilandSelfWorkflow(workflowPath, workflowName)) {
-        console.log(`[Webhook] PikiLand self-healing workflow completion detected. Run ID: ${runId}, Conclusion: ${conclusion}`);
-        if (action === "completed" && conclusion === "failure") {
-          const extractedHash = headBranch.startsWith("pikiland/fix-")
-            ? headBranch.substring("pikiland/fix-".length).trim()
-            : null;
-          updateFingerprintState(extractedHash, repoFullName, "FAILED");
-        }
-        return c.text("Accepted", 200);
-      }
-
-      if (action === "completed" && conclusion === "failure") {
-        if (settings && !settings.active) {
-          console.log(`[Webhook Notice] Repo ${repoFullName} is INACTIVE. Skipping self-healing.`);
-          return c.text("Accepted", 200);
-        }
-        console.log(`[Webhook Action] 🚀 Target Workflow Failure Detected! Run ID: ${runId}, Repo: ${repoFullName}, Head Branch: ${headBranch}`);
-
-        const existingFp = logFingerprintRepository.findByHash(runId);
-        if (!existingFp) {
-          logFingerprintRepository.save({
-            hash: runId,
-            repositoryFullName: repoFullName,
-            normalizedSignature: `Workflow Failure: ${workflowName || "CI"} (Run #${runId})`,
-            rawLog: `Workflow Run ID: ${runId}\nBranch: ${headBranch}\nWorkflow: ${workflowPath || workflowName}`,
-            state: "IN_PROGRESS",
-            occurrenceCount: 1,
-            firstSeenAt: new Date(),
-            lastSeenAt: new Date(),
-          });
-        }
-
-        selfHealingService.runSelfHealing({
-          repoName: repoFullName,
-          rawLogOrIssueBody: null,
-          eventType: "workflow_run",
-          runId,
-          installationId,
-          targetBranch: headBranch,
-          defaultBranch,
-        });
-      }
-    } else if (event === "pull_request") {
+    // GitHub events update existing production incidents only.
+    if (event === "pull_request") {
       const action = payload.action;
       const pr = payload.pull_request || {};
       const headRef = pr.head?.ref || "";
@@ -223,37 +114,8 @@ async function handleWebhookPost(c: any) {
         if (action === "opened") {
           updateFingerprintState(hash, repoFullName, "PR_CREATED", prUrl);
         } else if (action === "closed" && merged) {
-          updateFingerprintState(hash, repoFullName, "RESOLVED", prUrl);
+          updateFingerprintState(hash, repoFullName, "AWAITING_DEPLOYMENT", prUrl);
         }
-      }
-    } else if (event === "issues") {
-      const action = payload.action;
-      if (action === "opened") {
-        const issue = payload.issue || {};
-        const issueBody = issue.body || "";
-        const issueNumber = String(issue.number || "");
-        const senderLogin = payload.sender?.login || "";
-
-        if (isPikilandSelfIssue(issue, issueBody, senderLogin)) {
-          console.log(`[Webhook Notice] Issue #${issueNumber} created by PikiLand. Skipping to prevent loop.`);
-          return c.text("Accepted", 200);
-        }
-
-        if (settings && !settings.active) {
-          console.log(`[Webhook Notice] Repo ${repoFullName} is INACTIVE. Skipping issue self-healing.`);
-          return c.text("Accepted", 200);
-        }
-
-        console.log(`[Webhook Action] 🚀 Issue Opened Detected! Issue #: ${issueNumber}, Repo: ${repoFullName}`);
-        selfHealingService.runSelfHealing({
-          repoName: repoFullName,
-          rawLogOrIssueBody: issueBody,
-          eventType: "issues",
-          runId: issueNumber,
-          installationId,
-          targetBranch: defaultBranch,
-          defaultBranch,
-        });
       }
     }
 

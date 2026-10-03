@@ -1,6 +1,6 @@
 export type HarnessStatus = "NONE" | "PENDING_CONFIRMATION" | "ACTIVE" | "FAILED";
 export type HarnessSource = "NONE" | "AUTO_INFERRED" | "USER_PROVIDED";
-export type FingerprintState = "IN_PROGRESS" | "PR_CREATED" | "RESOLVED" | "FAILED";
+export type FingerprintState = "IN_PROGRESS" | "PR_CREATED" | "RESOLVED" | "FAILED" | "NO_PR" | "NEEDS_EVIDENCE" | "AWAITING_DEPLOYMENT";
 
 export interface RepoSettings {
   repositoryFullName: string;

@@ -1,3 +1,5 @@
+import { bodyLimit } from "hono/body-limit";
+import { systemSettingsRepository } from "../db/repositories/system-settings.repository";
 import { Hono } from "hono";
 import { randomUUID } from "crypto";
 import { dashboardService } from "../services/dashboard.service";
@@ -106,14 +108,18 @@ settingsRoutes.get("/infer-log-path", async (c) => {
   return c.json({ inferredLogPath });
 });
 
-// Provision EC2 Fluent Bit (1-Time SSH)
+// Provision a dedicated read-only observer; never trust request Host for credential delivery.
+settingsRoutes.use("/provision-ec2", bodyLimit({maxSize:65536}));
 settingsRoutes.post("/provision-ec2", async (c) => {
+  const user=getSessionUser(c);
+  if (!user) return c.text("Forbidden",403);
   try {
     const formData = await c.req.formData();
     const repositoryFullName = String(formData.get("repositoryFullName") || "");
+    if (!await isAuthorizedForRepo(repositoryFullName,user)) return c.text("Forbidden",403);
     const ec2Ip = String(formData.get("ec2Ip") || "");
     const sshUser = String(formData.get("sshUser") || "");
-    const logPath = String(formData.get("logPath") || "/var/log/production/*.log");
+    const logPath = String(formData.get("logPath") || "/var/log/nginx/access.log");
     const pemKeyFile = formData.get("pemKey");
 
     if (!repositoryFullName || !ec2Ip || !sshUser || !pemKeyFile) {
@@ -127,10 +133,12 @@ settingsRoutes.post("/provision-ec2", async (c) => {
       pemKeyContent = await pemKeyFile.text();
     }
 
-    const hostHeader = c.req.header("X-Forwarded-Host") || c.req.header("Host") || "localhost";
-    const pipelineServerHost = hostHeader.includes(":") ? hostHeader.split(":")[0] : hostHeader;
-    const isHttps = c.req.header("X-Forwarded-Proto") === "https" || c.req.url.startsWith("https://");
-    const pipelineServerPort = isHttps ? 443 : 8080;
+    const configuredUrl=process.env.PIKILAND_SERVER_URL || systemSettingsRepository.getGlobalSettings()?.pikilandServerUrl;
+    if (!configuredUrl) return c.json({error:"Configure a verified HTTPS PikiLand server URL first"},400);
+    const endpoint=new URL(configuredUrl);
+    if(endpoint.protocol!=="https:" || endpoint.username || endpoint.password || endpoint.pathname!=="/" || endpoint.search || endpoint.hash) return c.json({error:"HTTPS origin required"},400);
+    const pipelineServerHost=endpoint.hostname;
+    const pipelineServerPort=Number(endpoint.port || 443);
     const existingSettings = repoSettingsRepository.findById(repositoryFullName);
     const bearerToken = existingSettings?.logReceiverToken || randomUUID();
 
@@ -140,6 +148,7 @@ settingsRoutes.post("/provision-ec2", async (c) => {
       sshUser,
       logPath,
       pemKeyContent,
+      hostFingerprint: String(formData.get("hostFingerprint") || ""),
       pipelineServerHost,
       pipelineServerPort,
       bearerToken,
@@ -148,7 +157,7 @@ settingsRoutes.post("/provision-ec2", async (c) => {
     if (success) {
       return c.json({
         status: "success",
-        message: "EC2 Fluent Bit provisioned and SSH key revoked successfully",
+        message: "Read-only observer installed; web-server configuration unchanged",
       });
     } else {
       return c.json({ status: "error", message: "Provisioning failed. Check server logs." }, 500);
@@ -159,14 +168,15 @@ settingsRoutes.post("/provision-ec2", async (c) => {
 });
 
 // Incidents List
-settingsRoutes.get("/incidents", (c) => {
+settingsRoutes.get("/incidents", async (c) => {
   const repo = c.req.query("repo");
   if (!repo) return c.json([]);
+  if (!await isAuthorizedForRepo(repo, getSessionUser(c))) return c.text("Forbidden", 403);
   return c.json(logIngestService.getIncidentsForRepository(repo));
 });
 
 // Incident Detail
-settingsRoutes.get("/incidents/detail", (c) => {
+settingsRoutes.get("/incidents/detail", async (c) => {
   const hash = c.req.query("hash");
   const authHeader = c.req.header("Authorization");
 
@@ -178,7 +188,7 @@ settingsRoutes.get("/incidents/detail", (c) => {
   }
 
   const token = authHeader.substring(7).trim();
-  const detail = logIngestService.getIncidentDetailMapByHash(hash, token);
+  const detail = await logIngestService.getIncidentDetailMapByHash(hash, token);
   if (!detail) {
     return c.text("Not Found", 404);
   }
