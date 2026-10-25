@@ -1,31 +1,26 @@
+import { fromHono } from "chanfana";
 import { Hono } from "hono";
-import { serveStatic } from "hono/bun";
-import { cors } from "hono/cors";
-import { webhookRoutes } from "./routes/webhook.routes";
-import { authRoutes } from "./routes/auth.routes";
-import { settingsRoutes } from "./routes/settings.routes";
-import { logReceiverRoutes } from "./routes/log-receiver.routes";
-import { viewRoutes } from "./routes/view.routes";
+import { AuthCallback } from "./endpoints/authCallback";
+import { IncidentCreate } from "./endpoints/incidentCreate";
+import { jwt } from "hono/jwt";
 
-const app = new Hono();
+const app = new Hono<{ Bindings: Env }>();
 
-// Global Middlewares
-app.use("*", cors());
-app.use("/css/*", serveStatic({ root: "./public" }));
-app.use("/js/*", serveStatic({ root: "./public" }));
+app.use("/api/incidents/*", (c, next) => {
+  return jwt({ secret: c.env.JWT_SECRET, alg: "HS256" })(c, next);
+});
 
-// Route Registration
-app.route("/", webhookRoutes);
-app.route("/", authRoutes);
-app.route("/", viewRoutes);
-app.route("/api/settings", settingsRoutes);
-app.route("/api/logs", logReceiverRoutes);
+const openapi = fromHono(app, {
+  docs_url: "/docs",
+});
 
-const port = parseInt(process.env.PORT || "8080", 10);
-console.log(`🏰 PikiLand Web Coordinator running on port ${port} (TypeScript + Bun Engine)`);
+openapi.registry.registerComponent("securitySchemes", "bearerAuth", {
+  type: "http",
+  scheme: "bearer",
+  bearerFormat: "JWT",
+});
 
-export default {
-  port,
-  fetch: app.fetch,
-};
-export { app };
+openapi.get("/api/auth/callback", AuthCallback);
+openapi.post("/api/incidents", IncidentCreate);
+
+export default app;
