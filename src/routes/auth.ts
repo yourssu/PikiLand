@@ -87,25 +87,23 @@ auth.get("/github/callback", async (c) => {
     return c.text("Failed to get GitHub user info", 502);
   }
 
-  const userData = (await userResponse.json()) as {
-    login?: unknown;
+  const { id } = (await userResponse.json()) as {
     id?: unknown;
   };
 
-  if (typeof userData.login !== "string" || typeof userData.id !== "number") {
+  if (typeof id !== "number") {
     return c.text("Invalid GitHub user info", 502);
   }
 
   await DB.prepare(
     `REPLACE INTO sessions VALUES (?, ?, datetime('now', '+8 hours'))`,
   )
-    .bind(userData.id, tokenData.access_token)
+    .bind(id, tokenData.access_token)
     .run();
 
   const token = await sign(
     {
-      login: userData.login,
-      id: userData.id,
+      id,
       exp: Math.floor(Date.now() / 1000) + 28800,
     },
     c.env.JWT_SECRET,
