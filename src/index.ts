@@ -2,10 +2,18 @@ import { Hono, Next } from "hono";
 import { fromHono } from "chanfana";
 import auth from "./routes/auth";
 import { GetCurrentUser } from "./endpoints/getCurrentUser";
+import {
+  CreateRepository,
+  GetRepository,
+  UpdateRepository,
+  DeleteRepository,
+} from "./endpoints/repository";
 import { ListRepositories } from "./endpoints/listRepositories";
 import { AppContext, Env } from "./types";
 import { getCookie } from "hono/cookie";
 import { verify } from "hono/jwt";
+
+declare const __API_DOCS__: boolean;
 
 const app = new Hono<Env>();
 
@@ -14,8 +22,10 @@ app.route("/auth", auth);
 const openapi = fromHono(app, {
   base: "/api",
   docs_url: "/",
+  redoc_url: null,
+  openapi_url: "/openapi.json",
   schema: {
-    info: { title: "PikiLand API", version: "0.1.0" },
+    info: { title: "PikiLand API", version: "0.0.0-v2" },
     tags: [
       { name: "users" },
       { name: "repositories" },
@@ -50,5 +60,9 @@ openapi.use("/*", jwtMiddleware);
 
 openapi.get("/users/me", GetCurrentUser);
 openapi.get("/repositories", ListRepositories);
+openapi.post("/repositories", CreateRepository);
+openapi.get("/repositories/:repo_id", GetRepository);
+openapi.post("/repositories/:repo_id", UpdateRepository);
+openapi.delete("/repositories/:repo_id", DeleteRepository);
 
 export default app;
