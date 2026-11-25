@@ -5,8 +5,9 @@
 		"dev": "wrangler dev --define __API_DOCS__:true",
 		"deploy": "wrangler deploy --minify",
 		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
-		"test": "bun test",
-		"typecheck": "tsc --noEmit"
+		"test": "bun test && bun run test:d1",
+		"typecheck": "tsc --noEmit",
+		"test:d1": "bun build tests/external/test-incidents-d1.ts --target=node --format=esm --packages=external --outfile=.wrangler/incident-test.mjs && node .wrangler/incident-test.mjs"
 	},
 	"dependencies": {
 		"chanfana": "^3.4.2",
@@ -14,8 +15,10 @@
 		"zod": "^4.6.7"
 	},
 	"devDependencies": {
+		"@apidevtools/swagger-parser": "^13.1.0",
 		"@types/bun": "^1.4.5",
 		"@types/node": "^26.6.6",
+		"miniflare": "5.20261104.0-beta",
 		"typescript": "^7.0.2",
 		"wrangler": "^4.158.0"
 	},

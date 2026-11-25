@@ -127,6 +127,13 @@ describe("Chanfana repository API", () => {
     const created = await create();
     expect(created.status).toBe(201);
     expect(created.headers.get("Location")).toBe("/api/repositories/100");
+    const activeList = (await (await request()).json()) as any;
+    expect(activeList.repos).toHaveLength(1);
+    expect(activeList.repos[0].is_active).toBe(true);
+    expect(
+      ((await (await request("/api/repositories/100")).json()) as any).repo
+        .is_active,
+    ).toBe(true);
     expect(await created.json()).toEqual({
       repo: {
         id: 100,

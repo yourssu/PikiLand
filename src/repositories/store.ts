@@ -8,7 +8,7 @@ export type RepositoryRow = {
   owner: string;
   name: string;
   branch: string;
-  is_active: boolean;
+  is_active: number;
   llm_base_url: string;
   llm_model_name: string;
   llm_api_key_ciphertext: string;
@@ -22,7 +22,7 @@ export const summary = (row: RepositoryRow) => ({
   owner: row.owner,
   name: row.name,
   branch: row.branch,
-  is_active: row.is_active === true,
+  is_active: row.is_active === 1,
 });
 export async function findRepository(c: AppContext, id: number) {
   const row = await c.env.DB.prepare(

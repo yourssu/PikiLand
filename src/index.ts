@@ -1,3 +1,10 @@
+import { CreateEngineToken } from "./endpoints/engineToken";
+import {
+  ListIncidents,
+  GetIncident,
+  DeleteIncident,
+  UpdateEngineIncident,
+} from "./endpoints/incidents";
 import { Hono, Next } from "hono";
 import { fromHono } from "chanfana";
 import auth from "./routes/auth";
@@ -41,6 +48,21 @@ openapi.registry.registerComponent("securitySchemes", "cookieAuth", {
   name: "__Host-token",
 });
 
+openapi.registry.registerComponent("securitySchemes", "RepositoryBearer", {
+  type: "http",
+  scheme: "bearer",
+  description: "피키랜드 engine 토큰",
+});
+openapi.registry.registerComponent("securitySchemes", "GitHubActionsOIDC", {
+  type: "http",
+  scheme: "bearer",
+  bearerFormat: "JWT",
+});
+
+// These routes authenticate independently of the user cookie middleware.
+openapi.post("/repositories/:repo_id/tokens/engine", CreateEngineToken);
+openapi.post("/repositories/:repo_id/incidents", UpdateEngineIncident);
+
 const jwtMiddleware = async (c: AppContext, next: Next) => {
   const unauthorizedResponse = c.text("Unauthorized", 401);
   const token = getCookie(c, "token", "host");
@@ -64,5 +86,9 @@ openapi.post("/repositories", CreateRepository);
 openapi.get("/repositories/:repo_id", GetRepository);
 openapi.post("/repositories/:repo_id", UpdateRepository);
 openapi.delete("/repositories/:repo_id", DeleteRepository);
+
+openapi.get("/repositories/:repo_id/incidents", ListIncidents);
+openapi.get("/repositories/:repo_id/incidents/:incident_id", GetIncident);
+openapi.delete("/repositories/:repo_id/incidents/:incident_id", DeleteIncident);
 
 export default app;
