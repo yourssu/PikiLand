@@ -1,92 +1,53 @@
-import {
-  InternalServerErrorException,
-  OpenAPIRoute,
-  UnauthorizedException,
-} from "chanfana";
+import { OpenAPIRoute, contentJson } from "chanfana";
 import { z } from "zod";
-import { type AppContext } from "../types";
+import type { AppContext } from "../types";
+import { accessibleRepositories } from "../repositories/access";
+import { summary, type RepositoryRow } from "../repositories/store";
+import {
+  errors,
+  listQuery,
+  pageStats,
+  repository,
+  security,
+} from "../repositories/schema";
 
 export class ListRepositories extends OpenAPIRoute {
   schema = {
     summary: "리포지토리 목록 조회",
-    operationId: "ListRepositories",
-    security: [{ cookieAuth: [] }],
+    operationId: "listRepositories",
+    security,
     tags: ["repositories"],
+    request: { query: listQuery },
     responses: {
       "200": {
         description: "성공",
-        content: {
-          "application/json": {
-            schema: z.object({
-              repositories: z.array(
-                z.object({
-                  id: z
-                    .int()
-                    .describe("리포지토리 Id")
-                    .openapi({ example: 1234567 }),
-                  full_name: z
-                    .string()
-                    .describe("리포지토리 이름")
-                    .openapi({ example: "yourssu/PikiLand" }),
-                }),
-              ),
-            }),
-          },
-        },
+        ...contentJson(
+          z.object({ repos: z.array(repository), page_stats: pageStats }),
+        ),
       },
+      ...errors,
     },
   };
-
   async handle(c: AppContext) {
-    const id = c.get("id");
-
-    const access_token = await c.env.DB.prepare(
-      "SELECT github_access_token FROM sessions WHERE id = ? and expires_at > datetime('now')",
-    )
-      .bind(id)
-      .first<{ github_access_token: string }>();
-    if (!access_token) throw new UnauthorizedException();
-
-    const installationsResponse = await fetch(
-      "https://api.github.com/user/installations",
-      {
-        headers: {
-          Authorization: `Bearer ${access_token.github_access_token}`,
-          Accept: "application/vnd.github+json",
-          "User-Agent": "PikiLand-Coordinator",
-        },
-      },
+    const { query } = await this.getValidatedData<typeof this.schema>();
+    const access = await accessibleRepositories(c);
+    const { results } = await c.env.DB.prepare(
+      "SELECT * FROM repositories ORDER BY repo_id",
+    ).all<RepositoryRow>();
+    const rows = results.filter(
+      (row) =>
+        access.get(row.installation_id)?.has(row.repo_id) &&
+        (!query.filter_active || row.is_active === 1),
     );
-    if (!installationsResponse.ok) throw new InternalServerErrorException();
-
-    const { installations } = (await installationsResponse.json()) as {
-      installations: { id: number }[];
-    };
-
-    const result = [];
-    for (const inst of installations) {
-      const { id } = inst;
-      const repositoriesResponse = await fetch(
-        `https://api.github.com/user/installations/${id}/repositories`,
-        {
-          headers: {
-            Authorization: `Bearer ${access_token.github_access_token}`,
-            Accept: "application/vnd.github+json",
-            "User-Agent": "PikiLand-Coordinator",
-          },
-        },
-      );
-      if (!repositoriesResponse.ok) throw new InternalServerErrorException();
-
-      const { repositories } = (await repositoriesResponse.json()) as {
-        repositories: { id: number; full_name: string }[];
-      };
-
-      for (const { id, full_name } of repositories) {
-        result.push({ id, full_name });
-      }
-    }
-
-    return c.json({ repositories: result }, 200);
+    const start = (query.page - 1) * query.per_page;
+    return c.json({
+      repos: rows.slice(start, start + query.per_page).map(summary),
+      page_stats: {
+        page: query.page,
+        per_page: query.per_page,
+        total_count: rows.length,
+        total_pages: Math.ceil(rows.length / query.per_page),
+      },
+    });
   }
 }
