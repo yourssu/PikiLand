@@ -37,7 +37,7 @@ export class ListRepositories extends OpenAPIRoute {
     const rows = results.filter(
       (row) =>
         access.get(row.installation_id)?.has(row.repo_id) &&
-        (!query.filter_active || row.is_active === 1),
+        (!query.filter_active || row.is_active === true),
     );
     const start = (query.page - 1) * query.per_page;
     return c.json({
